@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TopLevel.fs" />
+    <Compile Include="AST\TopLevel.fs" />
+    <Compile Include="AST\Parsing.fs" />
+    <Compile Include="IL\IL.fs" />
+    <Compile Include="IL\Write.fs" />
+    <Compile Include="IL\Optimization.fs" />
+    <Compile Include="Translate.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+  </ItemGroup>
+
+</Project>
