@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Asmb": {
+      "commandName": "Project",
+      "commandLineArgs": "asmb1 -debug"
+    }
+  }
+}
