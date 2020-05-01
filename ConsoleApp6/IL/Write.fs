@@ -40,34 +40,41 @@ let writeProc { Name = name; Body = body; Sig = ``sig`` } =
 
 let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
 
-    empty
-    //      Model
-    |> append ".model small"
-    |> appendNewLine
-    //      Stack
-    |> append (sprintf ".stack %d" stack)
-    |> appendNewLine
-    //      Data
-    |> append ".data"
-    |> indented 1 
-        (fun writer -> List.fold (fun writer (name, size, literals) ->
-            let defSize = match size with Byte -> "db" | Word -> "dw" | DWord -> "dd"
-            let strLiterals = List.map string literals |> String.concat ", "
-            append (sprintf "%s %s %s" name defSize strLiterals) writer) writer vars)
-    |> appendNewLine
-    //      Code
-    |> append ".386"
-    |> append "LOCAL @@"
-    |> append ".code"
-    |> indented 1 (
-           append "mov ax, @data"
-        >> append "mov ds, ax"
-        >> append "call main"
-        >> append "exit:"
-        >> indented 1 (
-               append "mov ax, 4C00h"
-            >> append "int 21h")
-        >> appendNewLine
-        >> fun writer -> List.fold (fun writer p -> writeProc p writer |> appendNewLine) writer procs)
-    |> append "end"
-    |> str
+    match List.tryFind (fun p -> p.Name = "main") procs with
+    | None -> failwithf "Program has no main function what are you doing please add a main"
+    | Some main ->
+        if fst main.Sig <> Byte || snd main.Sig <> [] then failwithf "main must return byte and return no parameters"
+        empty
+        //      Model
+        |> append ".model small"
+        |> appendNewLine
+        //      Stack
+        |> append (sprintf ".stack %d" stack)
+        |> appendNewLine
+        //      Data
+        |> append ".data"
+        |> indented 1 
+            (fun writer -> List.fold (fun writer (name, size, literals) ->
+                let defSize = match size with Byte -> "db" | Word -> "dw" | DWord -> "dd"
+                let strLiterals = List.map string literals |> String.concat ", "
+                append (sprintf "%s %s %s" name defSize strLiterals) writer) writer vars)
+        |> appendNewLine
+        //      Code
+        |> append ".386"
+        |> append "LOCAL @@"
+        |> append ".code"
+        |> indented 1 (
+               append "mov ax, @data"
+            >> append "mov ds, ax"
+            >> append "call main"
+            >> append "pop dx"
+            >> append "mov ah, 2"
+            >> append "int 21h"
+            >> append "exit:"
+            >> indented 1 (
+                   append "mov ax, 4C00h"
+                >> append "int 21h")
+            >> appendNewLine
+            >> fun writer -> List.fold (fun writer p -> writeProc p writer |> appendNewLine) writer procs)
+        |> append "end"
+        |> str
