@@ -23,8 +23,8 @@ let compile (optimize: bool) (fileName: string) =
         let program = translateProg asmbProgram |> if optimize then optimizeProgram else id
         let str = writeProg program     
         printfn "%s" str
-        File.WriteAllText(fileName + ".asm", str)
-        let p = System.Diagnostics.Process.Start(@"C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe", sprintf @"-c ""TASM %s"" -c ""TLINK %s""" (fileName + ".asm") fileName)
+        File.WriteAllText(sprintf "C:\TASM\%s.asm" fileName, str)
+        let p = System.Diagnostics.Process.Start(@"C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe", sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
         p.WaitForExit()
         p.Dispose()
         

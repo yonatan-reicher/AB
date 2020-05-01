@@ -69,6 +69,7 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
             >> append "call main"
             >> append "pop dx"
             >> append "mov ah, 2"
+            >> append "add dl, '0'"
             >> append "int 21h"
             >> append "exit:"
             >> indented 1 (
