@@ -47,4 +47,4 @@ module Literal =
         | Char _ -> Byte
         | Offset _ -> Word
 
-type SizeContext = {Vars: Map<string, Size>; Procs: Map<string, Size*Size list>}
+type ProcSig = Size * Size list

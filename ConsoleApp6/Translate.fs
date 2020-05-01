@@ -22,7 +22,7 @@ type Context =
         mutable LocalLabels: string Set
         Rand: System.Random
         Procedure: AsmbProcedure    }
-    member t.SizeMap: SizeContext = {Vars = Map.map (fun _ -> fst) t.Vars; Procs = t.ProcSigs}
+    member t.SizeMap = Map.map (fun _ -> fst) t.Vars, t.ProcSigs
     member t.GenerateLocal(comment: string): Label = 
         //let mutable name = (sprintf "%s__%s" t.Procedure.ProcName comment).Replace(' ', '_')
         //while Set.contains name t.LocalLables do

@@ -72,10 +72,10 @@ type AsmbProgram = {    ProgVariables: (string * Size * Literal list) list
 
 module Expr =
     ///<summary>Returns the size of the value that the expression will return</summary>
-    let rec size ({Vars=vars; Procs=procs} as con) = function
-        | Variable id -> vars.[id]
+    let rec size (vars: seq<string*Size>, procs: seq<string*ProcSig>) = function
+        | Variable name -> Seq.find (fst >> (=) name) vars |> snd
         | Constent c -> Literal.size c
-        | BiOperation (o,e1,e2) -> BiOperator.size o (size con e1) (size con e2)
-        | UOperation (o,e) -> UOperator.size o (size con e)
+        | BiOperation (o,e1,e2) -> BiOperator.size o (size (vars, procs) e1) (size (vars, procs) e2)
+        | UOperation (o,e) -> UOperator.size o (size (vars, procs) e)
         | Convert (_,s) -> s        
-        | Call (name,_) -> fst procs.[name]
+        | Call (name,_) -> Seq.find (fst >> (=) name) procs |> snd |> fst
