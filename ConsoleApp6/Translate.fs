@@ -63,7 +63,7 @@ let rec translateAssignTo ({ Vars = v } as con: Context) (expr: Expr): lines =
     | Expr.Variable name -> 
         Context.popVar name con
     | UOperation (PointerVal, pointer) ->
-        if Expr.size con.SizeMap pointer <> Word then failwithf "must be word"
+        if Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) pointer <> Word then failwithf "must be word"
         let r = Register.fromSize A Word
         translateExpr con pointer
         @ [Line.make "pop" [Reg DI]]
@@ -73,10 +73,10 @@ let rec translateAssignTo ({ Vars = v } as con: Context) (expr: Expr): lines =
 
 and translateExpr con expr = 
     match expr with
-    | Expr.Constent l -> let r = Register.fromSize A (Expr.size con.SizeMap expr) in Line.mov r (Constent l) :: Line.push r
+    | Expr.Constent l -> let r = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) expr) in Line.mov r (Constent l) :: Line.push r
     | Variable name -> Context.pushVar name con
     | BiOperation (Add | Sub as o, e1, e2) ->
-        let size = Size.max (Expr.size con.SizeMap e1) (Expr.size con.SizeMap e2)
+        let size = Size.max (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e1) (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e2)
         let a, d = Register.fromSize A size, Register.fromSize D size
         translateExpr con (Convert (e1, size))
         @ translateExpr con (Convert (e2, size))
@@ -84,7 +84,7 @@ and translateExpr con expr =
         @ [Line.make (match o with Add -> "add" | Sub -> "sub") [Reg a; Reg d]]
         @ Line.push a
     | BiOperation (Mul, e1, e2) ->
-        let size = Size.max (Expr.size con.SizeMap e1) (Expr.size con.SizeMap e2)
+        let size = Size.max (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e1) (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e2)
         let a, d = Register.fromSize A size, Register.fromSize D size
         translateExpr con (Convert (e1, size))
         @ translateExpr con (Convert (e2, size))
@@ -92,7 +92,7 @@ and translateExpr con expr =
         @ [Line.make "mul" [Reg d]]
         @ Line.push a
     | BiOperation (EQ, e1, e2) ->
-        let size = Size.max (Expr.size con.SizeMap e1) (Expr.size con.SizeMap e2)
+        let size = Size.max (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e1) (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e2)
         let a, d = Register.fromSize A size, Register.fromSize D size
         let equal = con.GenerateLocal <| sprintf "%O = %O" e1 e2
         let notEqual = con.GenerateLocal <| sprintf "%O != %O" e1 e2
@@ -108,7 +108,7 @@ and translateExpr con expr =
         @ [Line.Label equal]
     | BiOperation _ -> failwith ""
     //| BiOperation (Div, e1, e2) ->  //  Yes dis one
-    //    let size = Size.max (Expr.size con.SizeMap e1) (Expr.size con.SizeMap e2)
+    //    let size = Size.max (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e1) (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) e2)
     //    let a, d = AFromSize size, DFromSize size
     //    translateExpr con (Convert (e1, size))
     //    @ translateExpr con (Convert (e2, size))
@@ -127,7 +127,7 @@ and translateExpr con expr =
         @ Line.push r
     | Convert (expr, size) ->
         let aRet = Register.fromSize A size
-        let aGet = Register.fromSize A (Expr.size con.SizeMap expr)
+        let aGet = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) expr)
         translateExpr con expr
         @ 
         if aRet = aGet then
@@ -162,7 +162,7 @@ let rec translateStatement (con: Context) (statement: Statement) =
         @ Line.push r
     | Statement.Comment c -> []//[Line.Comment c]
     | IfElse (cond, trueBlock, falseBlock) ->
-        let r = Register.fromSize A (Expr.size con.SizeMap cond)
+        let r = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) cond)
         let trueLines = translateBlock con trueBlock
         let falseLabel, falseLines = translateBlockWithLabel con falseBlock
         translateExpr con cond
@@ -174,7 +174,7 @@ let rec translateStatement (con: Context) (statement: Statement) =
     | While _ -> failwith ""
     | Return None -> translateStatement con (Return (Some (Expr.Constent <| UInt 0u)))
     | Return (Some expr) ->
-        let a = Register.fromSize A (Expr.size con.SizeMap expr)
+        let a = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) expr)
         let d = Register.fromSize D Word
         translateExpr con expr
         @ Line.pop a
