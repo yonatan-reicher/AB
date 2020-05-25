@@ -62,10 +62,12 @@ and Statement =
 and Block = Block of comment: string option * Statement list
 
 
-type AsmbProcedure = {  ProcName: string
-                        ProcBody: Block
-                        Parameters: (string * Size) list
-                        RetSize: Size                       }
+type AsmbProcedure = 
+    {  ProcName: string
+       ProcBody: Block
+       Parameters: (string * Size) list
+       RetSize: Size                       }
+    member t.Sig: ProcSig = t.RetSize, List.map snd t.Parameters
 
 type AsmbProgram = {    ProgVariables: (string * Size * Literal list) list
                         ProgProcedures: AsmbProcedure list               }
