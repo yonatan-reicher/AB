@@ -77,7 +77,7 @@ do piexpr :=
 
 let pblock, piblock = createParserForwardedToRef()
 
-let pcomment = 
+let pcomment: _ Parser = 
     choice [
         pstring "//" >>. restOfLine true
         pstring "/*" >>. manyCharsTill anyChar (pstring "*/")
@@ -120,5 +120,5 @@ let pprogram =
     let variableDeclaration = 
         tuple3 pidentifier psize <| opt (pstring "<-" >>. spaces >>. parray)
 
-    spaces >>. (*many variableDeclaration*) preturn [] .>>. many1 pproc .>> eof
+    spaces >>. (*many variableDeclaration*) preturn [] .>> many pcomment .>>. many1 (pproc .>> many pcomment).>> eof
     |>> fun (vars,procs) -> {ProgProcedures = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
