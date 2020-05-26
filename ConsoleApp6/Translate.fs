@@ -247,8 +247,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
     | Return (Some expr) ->
         exprSize expr (Register.fromSize A >> fun a -> 
             let d = Register.fromSize D Word
-            append1 (Line.comment "Returning!")
-            >> translateExpr expr
+            translateExpr expr
             >> append (Line.pop a)
             >> procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
             >> append1 (Line.make "pop" [Reg d])
@@ -260,7 +259,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
  
 
 and translateBlock (Block (comment, statements)) writer: LineWriter = 
-    List.fold (fun writer statement -> translateStatement statement writer) writer statements
+    List.fold (fun writer statement -> writer |> append1 EmptyLine |> append1 (Line.comment <| string statement) |> translateStatement statement) writer statements
 
 let translateProc (con: Context) (procedure: AsmbProcedure): Procedure =
     let con = 
