@@ -59,9 +59,10 @@ and Statement =
         | Return None -> "return"
         | NativeAssemblyLines lines -> String.concat "\n" lines
     
-and Block = Block of comment: string option * Statement list
-
-
+and Block = 
+    | Block of comment: string option * Statement list
+    member t.Comment = match t with Block (comment,_) -> comment
+ 
 type AsmbProcedure = 
     {  ProcName: string
        ProcBody: Block

@@ -5,6 +5,149 @@ open Asmb.AST
 open Asmb.IL
 
 
+type LabelCatagory = IfLabel | ElseLabel 
+
+type Context = { Vars: Map<string, Size * Operand>
+                 Procs: Map<string, ProcSig>
+                 ProcedureStack: uint
+                 Labels: Label Set
+                 Random: System.Random}
+
+module Context =
+    let empty = { Vars=Map.empty; Procs=Map.empty; ProcedureStack=0u; Labels=set []; Random = new System.Random () }
+    let make procs vars = 
+        { Vars = Map.ofSeq <| List.map (fun (a,b,c) -> a, (b, c)) vars
+          Procs = Map.ofSeq procs 
+          ProcedureStack = 0u
+          Labels = set []
+          Random = new System.Random() }
+
+    let declare (name, size) con = 
+        let b = Size.bytes size
+        let newProcStack = con.ProcedureStack + b
+        { con with 
+            ProcedureStack = newProcStack
+            Vars = Map.add name (size, Index(BP, UInt newProcStack, false, size)) con.Vars } 
+
+    let exprSize (expr: Expr) (con: Context) = 
+        Expr.size (Seq.map (fun (a, (b, _)) -> a, b) (Map.toSeq con.Vars), Map.toSeq con.Procs) expr
+
+    let private labelMap map = function Local s -> Local <| map s | Gloabal s -> Gloabal <| map s
+
+    let rec private validateLabel (con: Context) (label: Label): Label * Context =
+        if Set.contains label con.Labels then
+            validateLabel con (labelMap (fun x -> x + con.Random.Next().ToString()) label)
+        else
+            label, { con with Labels = con.Labels.Add label }
+
+    let private labelString (str: string) = String.map (function c when List.contains c (['a'..'z']@['0'..'9']) -> c | _ -> '_') str
+    
+    let makeLabel con (cat: LabelCatagory) (cond: Expr) (comment: string option) = 
+        sprintf "%A_%O_%s" cat cond (defaultArg comment "")
+        |> labelString
+        |> Local 
+        |> validateLabel con
+
+type LineWriter = { Lines: lines; Context: Context }
+module LineWriter =
+    let empty = { Lines=[]; Context=Context.empty}
+    let ofContext context = { empty with Context = context }
+    let append lines writer = { writer with Lines = writer.Lines @ lines }
+    let append1 line = append [line]
+    let declare (name, size) writer = { writer with Context = Context.declare (name, size) writer.Context }
+    let exprSize expr continuation (writer: LineWriter): LineWriter = continuation <| Context.exprSize expr writer.Context <| writer
+    let makeLabel (cat, cond, comment) continuation writer = 
+        let label, con = Context.makeLabel writer.Context cat cond comment
+        continuation label { writer with Context = con }
+
+open LineWriter
+
+let translateExpr (expr: Expr): LineWriter -> LineWriter = 
+    ()
+
+let translateAssignTo (expr: Expr): LineWriter -> LineWriter = 
+    ()
+
+let rec translateStatement (statement: Statement): LineWriter -> LineWriter = 
+    match statement with
+    | Pushpop ([], block) -> 
+        translateBlock block
+    | Pushpop (o::l, block) ->
+        append1 (Line.comment <| sprintf "Pushing %O" o)
+        >> translateExpr o
+        >> append1 IndentIn
+        >> translateStatement (Pushpop (l, block))
+        >> append1 IndentOut
+        >> append1 (Line.comment <| sprintf "Popping %O" o)
+        >> translateAssignTo o
+    | Assign (assign, expr) ->
+        translateExpr expr >> translateAssignTo assign
+    | StackDeclare (name, size, None) ->
+        let r = Register.fromSize A size
+        //  Simply put some zeros to mark it on the stack
+        declare (name, size) 
+        >> append1 (Line.mov0 r)
+        >> append (Line.push r)
+    | Statement.Comment c -> id //[Line.Comment c]
+    | IfElse (cond, trueBlock, falseBlock) ->
+        exprSize cond (Register.fromSize A >> fun r -> 
+            makeLabel (IfLabel, cond, trueBlock.Comment) (fun ifLabel -> 
+                makeLabel (ElseLabel, cond, trueBlock.Comment) (fun elseLabel -> 
+                    translateExpr cond
+                    >> append (Line.pop r)
+                    >> append [Line.make "cmp" [Reg r; Constent <| UInt 0u]; Line.Jump (JE, elseLabel)]
+                    >> append1 IndentIn
+                    >> translateBlock trueBlock
+                    >> append1 IndentOut
+                    >> translateBlock falseBlock)))
+        //let r = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) cond)
+        //let trueLines = translateBlock con trueBlock
+        //let falseLabel, falseLines = translateBlockWithLabel con falseBlock
+        //translateExpr con cond
+        //@ Line.pop r @ [Line.make "cmp" [Reg r; Constent <| UInt 0u]; Line.Jump(JE, falseLabel)]
+        //@ [IndentIn]
+        //@ trueLines
+        //@ [IndentOut]
+        //@ falseLines
+    | While _ -> failwith ""
+    | Return None -> translateStatement con (Return (Some (Expr.Constent <| UInt 0u)))
+    | Return (Some expr) ->
+        let a = Register.fromSize A (Expr.size (let a, b = con.SizeMap in Map.toSeq a, Map.toSeq b) expr)
+        let d = Register.fromSize D Word
+        translateExpr con expr
+        @ Line.pop a
+        @ [Line.make "pop" [Reg d]]
+        @ [Line.make "add" [Reg SP; Constent (UInt <| uint32 (con.StackAllocSize - 2))]]
+        @ Line.push a
+        @ Line.push d
+        @ [Line.make "ret" []]
+    | NativeAssemblyLines lines -> Seq.map Line.Text lines |> List.ofSeq
+    | 
+
+and translateBlock (Block (comment, statements)) writer: LineWriter = 
+    List.fold (fun writer statement -> translateStatement statement writer) writer statements
+
+let translateProc (con: Context) (procedure: AsmbProcedure): Procedure =
+    let con = 
+        { con with 
+            Vars = 
+                List.fold 
+                    (fun (vars: Map<_,_>, offset) (name, size) -> 
+                        Map.add name (size, Index (BP, UInt offset, true, size)) vars, 
+                        offset + Size.bytes size) 
+                    (con.Vars, 2u)
+                    procedure.Parameters //   2u is the number of bytes stored as the line pointer
+                |> fst }
+    { Name = procedure.ProcName
+      Sig = procedure.Sig
+      Body = (translateBlock procedure.ProcBody <| LineWriter.ofContext con).Lines }
+
+let translateProgram (program: AsmbProgram): Program =
+    let con = 
+        Context.make 
+        <| List.map (fun x -> x.ProcName, x.Sig) program.ProgProcedures 
+        <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
+    { StackSize = 16*16*16; Data = program.ProgVariables; Code = List.map (translateProc con) program.ProgProcedures }
 
 /// An Asmb variable is a sequence of lines that loads some data onto the stack
 type variables = Map<string, Size * Operand>

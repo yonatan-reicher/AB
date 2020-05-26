@@ -23,7 +23,7 @@ module Size =
         | Word, _ | _, Word -> Word
         | _ -> Byte
     //  Bytes are stored as words on the stack... sorry
-    let bytes = function Byte -> 2 | Word -> 2 | DWord -> 4
+    let bytes = function Byte -> 2u | Word -> 2u | DWord -> 4u
 
 type uint = uint32
 

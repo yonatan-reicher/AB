@@ -63,16 +63,17 @@ module Register =
 type [<StructuralEquality; NoComparison>] Operand = 
     | Constent of Literal
     | Reg of Register
-    | Index of start: Register * offset: Literal * Size
+    | Index of start: Register * offset: Literal * add: bool * Size
     override t.ToString() =
         match t with
         | Constent c -> string c
         | Reg r -> string r
-        | Index (r, o, s) -> sprintf "[%O ptr %O + %O]" s r o
+        | Index (r, UInt 0u, _, s) -> sprintf "[%O ptr %O]" s r
+        | Index (r, o, positive, s) -> sprintf "[%O ptr %O%c%O]" s r (if positive then '+' else '-') o
 module Operand =
     let size = function
         | Constent c -> Literal.size c
-        | Index (_,_,s) -> s
+        | Index (_,_,_,s) -> s
         | Reg r -> Register.size r
 
 ///<summary>An assembly instruction or label or such. Anything that will be a single line</summary>
