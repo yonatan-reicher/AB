@@ -61,7 +61,7 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
         |> appendNewLine
         //      Code
         |> append ".386"
-        |> append "LOCAL @@"
+        |> append "LOCALS @@"
         |> append ".code"
         |> indented 1 (
                append "mov ax, @data"
