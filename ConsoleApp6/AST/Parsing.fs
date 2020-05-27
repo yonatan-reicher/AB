@@ -7,7 +7,7 @@ open Asmb
 type 'a Parser = Parser<'a,unit>
 
 
-let keywords = ["func"; "byte"; "word"; "dword"; "return"; "if"; "else"; "while"; "pushpop"]
+let keywords = ["func"; "byte"; "word"; "dword"; "return"; "if"; "else"; "while"; "pushpop"; "push#"]
 
 let psize: _ Parser = 
     choice [
@@ -72,7 +72,7 @@ do piexpr :=
     pterm
     |> binary (choice [stringReturn "*" Mul; stringReturn "/" Div; stringReturn "%" Mod])
     |> binary (choice [stringReturn "+" Add; stringReturn "-" Sub])
-    |> binary (choice [stringReturn "=" EQ; stringReturn "!=" NEQ; stringReturn "<" Lesser; stringReturn ">" Greater; stringReturn ">=" NLesser; stringReturn "<=" NGreater])
+    |> binary (choice [stringReturn "=" EQ; stringReturn "!=" NEQ; stringReturn ">=" NLesser; stringReturn "<=" NGreater; stringReturn "<" Lesser; stringReturn ">" Greater])
 
 
 let pblock, piblock = createParserForwardedToRef()
@@ -87,6 +87,7 @@ let pstatement =
     choice [
         //  Statements with keywords or symbols at the beginning are easier to parse. Parse them first.
         pstring "return" >>. spaces >>. opt pexpr |>> Return    
+        pstring "push#" >>. spaces >>. pexpr |>> UnsafePush
         pstring "###" >>. spaces >>. manyCharsTill anyChar (pstring "###") |>> fun x -> x.Split('\r') |> NativeAssemblyLines
         pstring "pushpop" >>. spaces >>. sepBy1 pterm (pchar ',' >>. spaces) .>>. pblock |>> Pushpop
         pstring "if" >>. spaces >>. tuple3 pexpr pblock (pstring "else" >>. spaces >>. pblock) |>> IfElse
@@ -94,7 +95,8 @@ let pstatement =
         pcomment |>> Comment
         //  Statements with ambiguaty at the start should be parsed carfully using .>>.? operators
         pterm .>>? pstring "<-" .>> spaces .>>. pexpr |>> Assign
-        tuple3 pidentifier psize (opt (pchar '=' >>. spaces >>. pexpr)) |>> StackDeclare
+        pidentifier .>>.? psize .>>. (opt (pchar '=' >>. spaces >>. pexpr)) |>> fun ((a,b),c) -> StackDeclare(a,b,c)
+        pexpr |>> SideEffect
         //pidentifier .>>.? (stringReturn "++" Increment <|> stringReturn "--" Decrement) |>> fun (a,f) -> f a
     ]
     .>> spaces
