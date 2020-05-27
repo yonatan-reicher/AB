@@ -100,7 +100,16 @@ let pstatement =
     .>> spaces
 
 do piblock :=
-    pchar '{' >>. spaces >>. opt pcomment .>> spaces .>>. many (pstatement .>> pchar ';' .>> spaces) .>> pchar '}' .>> spaces |>> Block
+    let pline = 
+        parse {
+            let! statement = pstatement
+            match statement with
+            | Comment _ | IfElse _ | While _ -> return statement
+            | _ ->
+                let! _ = pchar ';'
+                return statement
+        } .>> spaces
+    pchar '{' >>. spaces >>. opt pcomment .>> spaces .>>. many pline .>> pchar '}' .>> spaces |>> Block
 
 
 let pproc = 
