@@ -249,7 +249,8 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         >> append1 (Line.comment <| sprintf "Popping %O" o)
         >> translateAssignTo o
     | SideEffect e ->
-        translateExpr e >> append1 (Line.make "add" [Reg SP; Constent <| UInt 2u])
+        exprSize e (fun size -> 
+            translateExpr e >> append1 (Line.make "add" [Reg SP; Size.bytes size |> UInt |> Constent]))
     | Assign (assign, expr) ->
         translateExpr expr >> translateAssignTo assign
     | StackDeclare (name, size, None) ->
