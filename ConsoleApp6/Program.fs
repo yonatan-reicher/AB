@@ -67,5 +67,5 @@ let rec main args =
     | [|fileName|] ->
         compile true fileName
     | _ -> printfn "Incorrect arguments! \nUse: asmb file-name"
-    Console.ReadKey true |> ignore
+    Console.ReadKey false |> ignore
     0

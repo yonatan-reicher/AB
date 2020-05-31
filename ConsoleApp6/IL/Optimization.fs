@@ -20,7 +20,9 @@ module Optimizer =
         while inputMinLength <= List.length lines do
             match optimizing state lines with
             | Some lines' ->
-                lines <- lines'
+                //lines <- lines'
+                lines <- List.tail lines'
+                outputLines <- List.head lines' :: outputLines
                 anyRanSuccessfuly <- true
             | None ->
                 match lines with
@@ -63,17 +65,21 @@ module Optimizer =
         let redundantMov0AH = 
             let (|ContainsAH|_|) = function AReg (H | X | EX) -> Some () | _ -> None
             let (|MayModifyAH|_|) = function
-                | Jump _ | Call _ | Text _ -> Some ()
-                | Inst (inst, operands) when 
-                    not (List.contains inst ["push"; "cmp"]) 
-                    && List.exists (function Reg ContainsAH -> true | _ -> false) operands 
-                    -> Some ()
-                | _ -> None
+                | MovReg (ContainsAH, _) -> Some ()
+                | Mov (_, _) -> None
+                | Push _ -> None
+                | Pop (Reg ContainsAH) -> Some ()
+                | Pop _ -> None
+                //| Inst (inst, operands) when 
+                //    not (List.contains inst ["push"; "cmp"]) 
+                //    && List.exists (function Reg ContainsAH -> true | _ -> false) operands 
+                //    -> Some ()
+                | _ -> Some ()
             Optimizer(1, false, fun ahIsZero -> function 
-                | Mov (Reg ContainsAH, Constent (UInt 0u)) as line :: rest ->
-                    let lines = if !ahIsZero then rest else line :: rest 
+                | MovReg (AReg H, Constent (UInt 0u)) :: rest ->
+                    let ret = if !ahIsZero then Some rest else None
                     ahIsZero := true
-                    Some lines
+                    ret
                 | MayModifyAH as line :: rest ->
                     ahIsZero := false
                     None

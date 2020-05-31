@@ -58,6 +58,12 @@ module Register =
         | DI | BP | SP -> Word
         | Var (_,s) -> s
     let fromSize x s = ABCDReg (x, RegType.FromSize s) 
+
+    module Registers =
+        let [al; ah; ax; eax] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(A,t)) 
+        let [bl; bh; bx; ebx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(B,t)) 
+        let [cl; ch; cx; ecx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(C,t)) 
+        let [dl; dh; dx; edx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(D,t)) 
          
 ///<summary>An assembly operand</summary>
 type [<StructuralEquality; NoComparison>] Operand = 

@@ -4,6 +4,7 @@ open Asmb
 open Asmb.AST
 open Asmb.IL
 
+open Register.Registers
 
 type LabelCatagory = 
     SkipIf | SkipElse | LoopLabel | EndLabel | TrueLabel | FalseLabel
@@ -135,6 +136,47 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append1 (Line.make "mul" [Reg d])
                 >> append (Line.push a)
                 ))
+    | BiOperation (Div, e1, e2) ->
+        exprSize e1 (fun size1 -> 
+            exprSize e2 (fun size2 ->
+                let size = Size.max size1 size2
+                let a, b = Register.fromSize A size, Register.fromSize B size
+                translateExpr (Convert (e1, size))
+                >> translateExpr (Convert (e2, size))
+                >> append1 (Line.mov0 <| Register.fromSize D size)
+                >> append (Line.pop b @ Line.pop a)
+                >> append1 (Line.make "div" [Reg b])
+                >> append (Line.push a)))
+    | BiOperation (Mod, e1, e2) ->
+        exprSize expr (function 
+            | Byte -> 
+                translateExpr (Convert (e1, Byte))
+                >> translateExpr (Convert (e2, Byte))
+                >> append (Line.pop bl @ Line.pop al)
+                >> append1 (Line.make "div" [Reg bl])
+                >> append (Line.push ah)
+            | Word -> 
+                translateExpr (Convert (e1, Word))
+                >> translateExpr (Convert (e2, Word))
+                >> append1 (Line.mov0 dx)
+                >> append (Line.pop bx @ Line.pop ax)
+                >> append1 (Line.make "div" [Reg bx])
+                >> append (Line.push dx)
+            | DWord -> 
+                translateExpr (Convert (e1, DWord))
+                >> translateExpr (Convert (e2, DWord))
+                >> append1 (Line.mov0 edx)
+                >> append (Line.pop ebx @ Line.pop eax)
+                >> append1 (Line.make "div" [Reg ebx])
+                >> append (Line.push edx))
+        //exprSize expr (fun size -> 
+        //    let a, b, d = Register.fromSize A size, Register.fromSize B size, Register.fromSize D size
+        //    translateExpr (Convert (e1, size))
+        //    >> translateExpr (Convert (e2, size))
+        //    >> append1 (Line.mov0 d)
+        //    >> append (Line.pop b @ Line.pop a)
+        //    >> append1 (Line.make "div" [Reg b])
+        //    >> append (Line.push d))
     | BiOperation (EQ, e1, e2) -> translateBiEquationOper JNE expr e1 e2
     | BiOperation (NEQ, e1, e2) -> translateBiEquationOper JE expr e1 e2
     | BiOperation (Greater, e1, e2) -> translateBiEquationOper JNG expr e1 e2
@@ -196,6 +238,8 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         >> append1 IndentOut
         >> append1 (Line.comment <| sprintf "Popping %O" o)
         >> translateAssignTo o
+    | SideEffect e ->
+        translateExpr e >> append1 (Line.make "add" [Reg SP; Constent <| UInt 2u])
     | Assign (assign, expr) ->
         translateExpr expr >> translateAssignTo assign
     | StackDeclare (name, size, None) ->
@@ -255,6 +299,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
             >> append (Line.push a)
             >> append (Line.push d)
             >> append1 (Line.make "ret" []))
+    | UnsafePush e -> translateExpr e
     | NativeAssemblyLines lines -> Seq.map Line.Text lines |> List.ofSeq |> append
  
 

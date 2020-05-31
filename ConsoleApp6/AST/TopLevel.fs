@@ -42,6 +42,8 @@ and Statement =
     | IfElse of cond: Expr * trueBlock: Block * falseBlock: Block
     | While of Expr * Block
     | Assign of Expr * Expr
+    | SideEffect of Expr
+    | UnsafePush of Expr
     | StackDeclare of string * Size * Expr option
     | Comment of string
     | Return of Expr option
@@ -52,11 +54,13 @@ and Statement =
         | IfElse (cond, _, _) -> sprintf "if %O" cond
         | While (expr, _) -> sprintf "while %O" expr
         | Assign (e1, e2) -> sprintf "%O <- %O" e1 e2
+        | SideEffect e -> string e
         | StackDeclare (name, size, Some expr) -> sprintf "%s %O = %O" name size expr
         | StackDeclare (name, size, None) -> sprintf "%s %O" name size
         | Comment comment -> sprintf "//  %O" comment
         | Return (Some expr) -> sprintf "return %O" expr
         | Return None -> "return"
+        | UnsafePush e -> sprintf "push# %O" e
         | NativeAssemblyLines lines -> String.concat "\n" lines
     
 and Block = 

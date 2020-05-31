@@ -34,7 +34,7 @@ type Literal =
     override t.ToString() =
         match t with
         | UInt i -> string (int i)
-        | Char c -> string c
+        | Char c -> sprintf "'%c'" c
         | Offset id -> sprintf "offset %s" id
 
 module Literal =
