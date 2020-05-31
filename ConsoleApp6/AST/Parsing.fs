@@ -10,19 +10,19 @@ type 'a Parser = Parser<'a,unit>
 let keywords = ["func"; "byte"; "word"; "dword"; "return"; "if"; "else"; "while"; "pushpop"; "push#"]
 
 let psize: _ Parser = 
-    choice [
+    choiceL [
         stringReturn "void" Void
         stringReturn "byte" Byte
         stringReturn "word" Word
         stringReturn "dword" DWord
-    ]
+    ] "size"
     .>> spaces
 
 let pliteral: Literal Parser = 
-    choice [
+    choiceL [
         puint32 |>> UInt 
         pchar '\'' >>. anyChar .>> pchar '\'' |>> Char
-    ]
+    ] "literal"
     .>> spaces
 
 let pidentifier : string Parser =
@@ -41,7 +41,7 @@ let sepBy1Save (p:'a Parser) (sep:'b Parser) : _ Parser = p .>>. many (sep .>>. 
     
 /// Also parser whitespace before and after
 let patom = 
-    choice [
+    choiceL [
         pliteral |>> Constent
         //pstring "offset " >>. pidentifier |>> Offset 
         pchar '(' >>. pexpr .>> pchar ')'
@@ -52,19 +52,19 @@ let patom =
                 |> opt
             return match param with None -> Variable name | Some param -> Call(name, param)
         }
-    ]
+    ] "expression atom"
     .>> spaces 
 
 let pterm = 
     parse {
-        let! operators = many (choice [
+        let! operators = many (choiceL [
             stringReturn "&" PointerOf
             stringReturn "*" PointerVal
             stringReturn "!" Not
-        ] .>> spaces) 
+        ] "unary operator" .>> spaces) 
         let! atom = patom
         return List.foldBack(fun o e -> UOperation(o, e)) operators atom
-    }
+    } .>> spaces <?> "expression term"
 
 do piexpr :=
     let binary sep p = 
@@ -74,6 +74,7 @@ do piexpr :=
     |> binary (choice [stringReturn "*" Mul; stringReturn "/" Div; stringReturn "%" Mod])
     |> binary (choice [stringReturn "+" Add; stringReturn "-" Sub])
     |> binary (choice [stringReturn "=" EQ; stringReturn "!=" NEQ; stringReturn ">=" NLesser; stringReturn "<=" NGreater; stringReturn "<" Lesser; stringReturn ">" Greater])
+    <??> "expression"
 
 
 let pblock, piblock = createParserForwardedToRef()
@@ -106,11 +107,10 @@ do piblock :=
     let pline = 
         parse {
             let! statement = pstatement
-            match statement with
-            | Comment _ | IfElse _ | While _ -> return statement
-            | _ ->
-                let! _ = pchar ';'
-                return statement
+            do! match statement with
+                | Comment _ | IfElse _ | While _ | Pushpop _ | NativeAssemblyLines _ -> preturn ()
+                | _ -> skipChar ';'
+            return statement
         } .>> spaces
     pchar '{' >>. spaces >>. opt pcomment .>> spaces .>>. many pline .>> pchar '}' .>> spaces |>> Block
 
