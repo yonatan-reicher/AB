@@ -47,7 +47,7 @@ let patom =
         parse {
             let! name = pidentifier
             let! param = 
-                pchar '(' >>. sepBy pexpr (pchar ',') .>> pchar ')'
+                pchar '(' >>. sepBy pexpr (pchar ',' .>> spaces) .>> pchar ')'
                 |> opt
             return match param with None -> Variable name | Some param -> Call(name, param)
         }
