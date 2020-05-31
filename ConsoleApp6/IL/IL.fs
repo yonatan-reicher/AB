@@ -38,7 +38,7 @@ type RegType =
         | EX -> sprintf "e%Ox"
         <| abcd
     member t.Size = match t with L | H -> Byte | X -> Word | EX -> DWord
-    static member FromSize(size: Size, ?low: RegType) = match size with Byte -> defaultArg low L | Word -> X | DWord -> EX 
+    static member FromSize(size: Size, ?low: RegType) = match size with Void -> invalidArg "There is no register of size Void!" "size" | Byte -> defaultArg low L | Word -> X | DWord -> EX 
 ///<summary>An assembly register - or global variable</summary>
 type Register = 
     | ABCDReg of ABCD * RegType

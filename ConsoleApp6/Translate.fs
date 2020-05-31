@@ -149,6 +149,7 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append (Line.push a)))
     | BiOperation (Mod, e1, e2) ->
         exprSize expr (function 
+            | Void -> id
             | Byte -> 
                 translateExpr (Convert (e1, Byte))
                 >> translateExpr (Convert (e2, Byte))
@@ -193,17 +194,26 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
     //    @ [Line.make "mul" [Reg d]]
     //    @ Line.push (Reg a)
     | Expr.Call (name, args) ->
-        procSig name (fun (retSize, argSizes) -> 
-            let r = Register.fromSize A retSize 
-            let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
-            append1 (Line.make "push" [Reg BP])
-            >> append1 IndentIn
-            >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> translateExpr expr) correctSizeArgs
-            >> append1 (Call name)
-            >> append (Line.pop r)
-            >> append1 IndentOut
-            >> append1 (Line.make "pop" [Reg BP])
-            >> append (Line.push r))
+        procSig name (function 
+            | Void, argSizes ->
+                let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
+                append1 (Line.make "push" [Reg BP])
+                >> append1 IndentIn
+                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> translateExpr expr) correctSizeArgs
+                >> append1 (Call name)
+                >> append1 IndentOut
+                >> append1 (Line.make "pop" [Reg BP])
+            | retSize, argSizes -> 
+                let r = Register.fromSize A retSize 
+                let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
+                append1 (Line.make "push" [Reg BP])
+                >> append1 IndentIn
+                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> translateExpr expr) correctSizeArgs
+                >> append1 (Call name)
+                >> append (Line.pop r)
+                >> append1 IndentOut
+                >> append1 (Line.make "pop" [Reg BP])
+                >> append (Line.push r))
     | Convert (expr, size) ->
         let aRet = Register.fromSize A size
         exprSize expr (Register.fromSize A >> fun aGet ->
@@ -287,7 +297,9 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
                     >> append1 (Jump (JMP, loop))
                     >> append1 IndentOut
                     >> append1 (Line.Label skip))))
-    | Return None -> translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
+    | Return None -> //translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
+        procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
+        >> paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))
     | Return (Some expr) ->
         exprSize expr (Register.fromSize A >> fun a -> 
             let d = Register.fromSize D Word

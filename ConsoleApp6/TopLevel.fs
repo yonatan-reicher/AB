@@ -9,9 +9,10 @@ type Label =
         | Gloabal s -> s
 
 type Size = 
-    Byte | Word | DWord
+    Void | Byte | Word | DWord
     override t.ToString () = 
         match t with 
+        | Void -> "void"
         | Byte -> "byte" 
         | Word -> "word"
         | DWord -> "dword"
@@ -23,7 +24,7 @@ module Size =
         | Word, _ | _, Word -> Word
         | _ -> Byte
     //  Bytes are stored as words on the stack... sorry
-    let bytes = function Byte -> 2u | Word -> 2u | DWord -> 4u
+    let bytes = function Void -> 0u | Byte -> 2u | Word -> 2u | DWord -> 4u
 
 type uint = uint32
 

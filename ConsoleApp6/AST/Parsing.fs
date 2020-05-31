@@ -11,6 +11,7 @@ let keywords = ["func"; "byte"; "word"; "dword"; "return"; "if"; "else"; "while"
 
 let psize: _ Parser = 
     choice [
+        stringReturn "void" Void
         stringReturn "byte" Byte
         stringReturn "word" Word
         stringReturn "dword" DWord
