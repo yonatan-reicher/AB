@@ -90,6 +90,7 @@ let pstatement =
         //  Statements with keywords or symbols at the beginning are easier to parse. Parse them first.
         pstring "return" >>. spaces >>. opt pexpr |>> Return    
         pstring "push#" >>. spaces >>. pexpr |>> UnsafePush
+        pstring "pop#" >>. spaces >>. pexpr |>> UnsafePop
         pstring "###" >>. spaces >>. manyCharsTill anyChar (pstring "###") |>> fun x -> x.Split('\r') |> NativeAssemblyLines
         pstring "pushpop" >>. spaces >>. sepBy1 pterm (pchar ',' >>. spaces) .>>. pblock |>> Pushpop
         pstring "if" >>. spaces >>. tuple3 pexpr pblock (pstring "else" >>. spaces >>. pblock) |>> IfElse

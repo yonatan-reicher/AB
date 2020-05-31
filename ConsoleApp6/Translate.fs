@@ -313,6 +313,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
             >> append (Line.push d)
             >> append1 (Line.make "ret" []))
     | UnsafePush e -> translateExpr e
+    | UnsafePop e -> translateAssignTo e
     | NativeAssemblyLines lines -> Seq.map Line.Text lines |> List.ofSeq |> append
  
 

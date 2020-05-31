@@ -43,10 +43,11 @@ and Statement =
     | While of Expr * Block
     | Assign of Expr * Expr
     | SideEffect of Expr
-    | UnsafePush of Expr
     | StackDeclare of string * Size * Expr option
     | Comment of string
     | Return of Expr option
+    | UnsafePush of Expr
+    | UnsafePop of Expr
     | NativeAssemblyLines of string []
     override t.ToString() =
         match t with
@@ -61,6 +62,7 @@ and Statement =
         | Return (Some expr) -> sprintf "return %O" expr
         | Return None -> "return"
         | UnsafePush e -> sprintf "push# %O" e
+        | UnsafePop e -> sprintf "pop# %O" e
         | NativeAssemblyLines lines -> String.concat "\n" lines
     
 and Block = 
