@@ -60,7 +60,7 @@ let compile (dosboxEXEPath: string) (tasmPath: string) (optimize: bool) (fileNam
         let program = translateProgram asmbProgram |> if optimize then optimizeProgram else id
         let str = writeProg program     
         printfn "%s" str
-        File.WriteAllText(stringPath(tasmPath, fileName, "amb"), str)
+        File.WriteAllText(stringPath(tasmPath, fileName, "asm"), str)
         
         use p = System.Diagnostics.Process.Start(dosboxEXEPath, sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
         Interop.onExit p.Kill
