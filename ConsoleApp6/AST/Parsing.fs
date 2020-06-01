@@ -75,7 +75,7 @@ do piexpr :=
     |> binary (choice [stringReturn "+" Add; stringReturn "-" Sub])
     |> binary (choice [stringReturn "=" EQ; stringReturn "!=" NEQ; stringReturn ">=" NLesser; stringReturn "<=" NGreater; stringReturn "<" Lesser; stringReturn ">" Greater])
     .>>. opt (pstring "as" >>. spaces >>. psize .>> spaces)
-    |>> function | expr, None -> expr | expr, Some size -> Convert(expr, size)
+    |>> function expr, None -> expr | expr, Some size -> Convert(expr, size)
     <??> "expression"
 
 
