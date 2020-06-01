@@ -90,6 +90,10 @@ module LineWriter =
 
 open LineWriter
 
+let jmpFromOper = function  | EQ -> JE | NEQ -> JNE 
+                            | Greater -> JG | Lesser -> JL
+                            | NGreater -> JNG | NLesser -> JNL
+
 let rec translateBiEquationOper oppositeJumpType expr e1 e2 = 
     makeLabel (TrueLabel, expr, None) (fun equalLabel ->
         makeLabel (FalseLabel, expr, None) (fun notEqualLabel ->
@@ -263,6 +267,27 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
     | StackDeclare (name, size, Some expr) ->
         declare (name, size) >> translateExpr (Convert (expr, size))
     | Statement.Comment c -> id //[Line.Comment c]
+    | IfElse (BiOperation(BiOperator.Equation as o, e1, e2) as cond, trueBlock, falseBlock) ->
+        let jmp = JumpType.not (jmpFromOper o)
+        exprSize e1 (fun size1 ->
+            exprSize e2 (fun size2 ->
+                makeLabel (SkipElse, cond, trueBlock.Comment) (fun skipElse -> 
+                    makeLabel (SkipIf, cond, falseBlock.Comment) (fun skipIf -> 
+                        let size = Size.max size1 size2
+                        let r1, r2 = Register.fromSize A size, Register.fromSize D size
+                        translateExpr (Convert(e1, size))
+                        >> translateExpr(Convert(e2, size))
+                        >> append (Line.pop r2)
+                        >> append (Line.pop r1)
+                        >> append1 (Line.make "cmp" [Reg r1; Reg r2])
+                        >> append1 (Jump(jmp, skipIf))
+                        >> append1 IndentIn
+                        >> translateBlock trueBlock
+                        >> append1 (Jump (JMP, skipElse))
+                        >> append1 IndentOut
+                        >> append1 (Line.Label skipIf)
+                        >> translateBlock falseBlock)
+                        >> append1 (Line.Label skipElse))))
     | IfElse (cond, trueBlock, falseBlock) ->
         exprSize cond (Register.fromSize A >> fun r -> 
             makeLabel (SkipElse, cond, trueBlock.Comment) (fun skipElse -> 
