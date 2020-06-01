@@ -46,7 +46,7 @@ module Optimizer =
             | Pop oper :: Push oper' :: r
                 when oper = oper' -> 
                 Some r
-            | (Push oper1 :: Pop oper2 :: r) as lines 
+            | Push oper1 :: Pop oper2 :: r 
                 when Operand.size oper1 = Operand.size oper2 ->
                 Some (Inst ("mov", [oper2; oper1]) :: r)
             | _ -> None)
@@ -62,39 +62,29 @@ module Optimizer =
                 Some (Inst ("mov", [Reg (ABCDReg (r, X)); Constent <| UInt (low + high * 256u)]) :: rest)
             | _ -> None)
 
-        let redundantMov0AH = 
-            let (|ContainsAH|_|) = function AReg (H | X | EX) -> Some () | _ -> None
-            let (|MayModifyAH|_|) = function
-                | MovReg (ContainsAH, _) -> Some ()
-                | Mov (_, _) -> None
+        let redundantMov0 r = 
+            let (|MayModify|_|) = function
+                | Mov (Reg r, _) 
+                | Inst ("add", [Reg r; _]) 
+                | Inst ("sub", [Reg r; _]) -> 
+                    match r with 
+                    | Register.Contains r -> Some()
+                    | _ -> None
                 | Push _ -> None
-                | Pop (Reg ContainsAH) -> Some ()
+                | Pop (Reg (Register.Contains r)) -> Some ()
                 | Pop _ -> None
-                //| Inst (inst, operands) when 
-                //    not (List.contains inst ["push"; "cmp"]) 
-                //    && List.exists (function Reg ContainsAH -> true | _ -> false) operands 
-                //    -> Some ()
+                | Comment _ -> None
+                | EmptyLine -> None
                 | _ -> Some ()
-            Optimizer(1, false, fun ahIsZero -> function 
-                | MovReg (AReg H, Constent (UInt 0u)) :: rest ->
-                    let ret = if !ahIsZero then Some rest else None
-                    ahIsZero := true
+            Optimizer(1, false, fun isZero -> function 
+                | MovReg (Register.Contains r as r', Constent (UInt 0u)) :: rest ->
+                    let ret = if isZero.Value && r = r' then Some rest else None
+                    isZero := true
                     ret
-                | MayModifyAH as line :: rest ->
-                    ahIsZero := false
+                | MayModify :: _ ->
+                    isZero := false
                     None
                 | _ -> None)
-    
-        let combineMovAXAndPushAX = Optimizer(2, (), fun _ -> function
-            | Mov (Reg (AReg X), Constent l) :: Push (Reg (AReg X)) :: r -> 
-                Some (Inst("push", [Constent l]) :: r )
-            | _ -> None)
-
-        let redundantPushMovPop = Optimizer(3, (), fun _ -> function
-            | Push o1 :: Mov (o2, o3) :: Pop o1' :: r 
-                when o1 = o1' -> 
-                Some (Inst("mov", [o2; o3]) :: r) 
-            | _ -> None)
             
 
     let rec runOptimizings (optimizings: optimizing seq) lines =
@@ -111,14 +101,12 @@ module Optimizer =
 open Optimizer
 open Optimizer.Optimizers
 
-let runAllOptimizers lines = 
-    runOptimizings [
-        optimize redundantPushPop
-        optimize combineConstantMovs
-        optimize combineMovAXAndPushAX
-        optimize redundantMov0AH
-        optimize redundantPushMovPop
-    ] lines
+let runAllOptimizers = 
+    runOptimizings (List.collect id [
+        [optimize redundantPushPop]
+        [optimize combineConstantMovs]
+        [for r in Register.Registers.basicRegisters -> optimize (redundantMov0 r)]
+    ])
 
 let optimizeProcedure (procedure: Procedure) = {procedure with Body = runAllOptimizers procedure.Body}
 let optimizeProgram (program: Program) = {program with Code = program.Code |> List.map optimizeProcedure}
