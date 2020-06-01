@@ -252,7 +252,8 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         exprSize e (fun size -> 
             translateExpr e >> append1 (Line.make "add" [Reg SP; Size.bytes size |> UInt |> Constent]))
     | Assign (assign, expr) ->
-        translateExpr expr >> translateAssignTo assign
+        exprSize assign (fun size ->
+            translateExpr (Convert(expr, size)) >> translateAssignTo assign)
     | StackDeclare (name, size, None) ->
         let r = Register.fromSize A size
         //  Simply put some zeros to mark it on the stack
