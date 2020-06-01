@@ -44,20 +44,25 @@ module Interop =
     do
         SetConsoleCtrlHandler(handler, true) |> ignore
 
+let defaultTasmPath = @"C:\TASM"
+let defaultDosboxPath = @"C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe"
 
-/// Compiles asmb code from a given source file from the TASM folder. fileName is the name of the file in th TASM folder 
-let compile (optimize: bool) (fileName: string) =
+/// Compiles asmb code from a given source file from the TASM folder. fileName is the name of the file in the TASM folder (reletive path)
+let compile (dosboxEXEPath: string) (tasmPath: string) (optimize: bool) (fileName: string) =
+    let stringPath (folder, file, fileExtension) = sprintf "%s\%s.%s" folder file fileExtension
+
     let fileName = if fileName.EndsWith ".ab" then fileName.[0..fileName.Length-1-3] else fileName
-    let sourceCode = File.ReadAllText (sprintf @"C:\TASM\%s.ab" fileName)
+    let sourceCode = File.ReadAllText (stringPath(tasmPath, fileName, "ab"))
+    
     match run pprogram sourceCode with
     | Failure (error, _, _) -> printfn "%s" error
     | Success (asmbProgram, (), _) ->
         let program = translateProgram asmbProgram |> if optimize then optimizeProgram else id
         let str = writeProg program     
         printfn "%s" str
-        File.WriteAllText(sprintf "C:\TASM\%s.asm" fileName, str)
+        File.WriteAllText(stringPath(tasmPath, fileName, "amb"), str)
         
-        use p = System.Diagnostics.Process.Start(@"C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe", sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
+        use p = System.Diagnostics.Process.Start(dosboxEXEPath, sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
         Interop.onExit p.Kill
         p.WaitForExit()
 
@@ -65,7 +70,9 @@ let compile (optimize: bool) (fileName: string) =
 let rec main args = 
     match args with
     | [|fileName|] ->
-        compile true fileName
-    | _ -> printfn "Incorrect arguments! \nUse: asmb file-name"
+        compile defaultDosboxPath defaultTasmPath true fileName
+    | [|dosboxPath; tasmPath; fileName|] ->
+        compile dosboxPath tasmPath true fileName
+    | _ -> printfn "Incorrect arguments! \nUse: asmb file-name \nor: \nasmb: dosbox-path tasm-folder-path file-name"
     Console.ReadKey false |> ignore
     0
