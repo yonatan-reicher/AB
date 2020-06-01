@@ -7,10 +7,14 @@ type BiOperator =
     | Add | Sub | Mul | Div | Mod
     | EQ | Lesser | Greater | NEQ | NLesser | NGreater | And | Or
 module BiOperator =
+    let (|Equation|Arithmetic|) = function 
+        | EQ | Lesser | Greater | NEQ 
+        | NLesser | NGreater | And | Or -> Equation
+        | Add | Sub | Mul | Div | Mod -> Arithmetic
     let size x s1 s2 = 
         match x with
-        | Add | Sub | Mul | Div | Mod -> Size.max s1 s2
-        | EQ | Lesser | Greater | NEQ | NLesser | NGreater | And | Or -> Byte
+        | Arithmetic -> Size.max s1 s2
+        | Equation -> Byte
 type UOperator =
     | PointerOf | PointerVal  
     | Not
