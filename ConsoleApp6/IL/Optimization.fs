@@ -46,8 +46,8 @@ module Optimizer =
             | Pop oper :: Push oper' :: r
                 when oper = oper' -> 
                 Some r
-            | (Push oper1 :: Pop oper2 :: r) as lines ->
-                System.Diagnostics.Debug.WriteLine(sprintf "%O" lines)
+            | (Push oper1 :: Pop oper2 :: r) as lines 
+                when Operand.size oper1 = Operand.size oper2 ->
                 Some (Inst ("mov", [oper2; oper1]) :: r)
             | _ -> None)
 

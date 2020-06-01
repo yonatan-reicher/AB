@@ -109,13 +109,13 @@ module Line =
         match typ with
         | L -> [mov0 (ABCDReg (abcd, H)); make "push" [Reg (ABCDReg (abcd, X))]]
         | H -> mov (ABCDReg (abcd, L)) (Reg reg) :: push (ABCDReg(abcd, L))
-        | X -> [make "push" [Reg reg]]
+        | X | EX -> [make "push" [Reg reg]]
         | EX -> [make "push" [Reg (ABCDReg(abcd,X))]; make "shr" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "push" [Reg (ABCDReg(abcd,X))]]
     let pop (ABCDReg (abcd, typ) as reg) =        
         match typ with
         | L -> [make "pop" [Reg (ABCDReg (abcd, X))]]
         | H -> [make "pop" [Reg (ABCDReg (abcd, X))]; mov reg (Reg <| ABCDReg (abcd, L))]
-        | X -> [make "pop" [Reg reg]]
+        | X | EX -> [make "pop" [Reg reg]]
         | EX -> [make "pop" [Reg (ABCDReg(abcd,X))]; make "shl" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "pop" [Reg (ABCDReg(abcd,X))]]
 
 ///<summary>An assembly procedure. proc MyProc ... ret endp</summary>
