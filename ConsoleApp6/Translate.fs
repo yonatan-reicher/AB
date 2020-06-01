@@ -318,8 +318,14 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
     | NativeAssemblyLines lines -> Seq.map Line.Text lines |> List.ofSeq |> append
  
 
-and translateBlock (Block (comment, statements)) writer: LineWriter = 
-    List.fold (fun writer statement -> writer |> append1 EmptyLine |> append1 (Line.comment <| string statement) |> translateStatement statement) writer statements
+and translateBlock (Block (_, statements)) writer: LineWriter = 
+    List.fold (fun writer statement -> 
+        writer 
+        |> append1 EmptyLine 
+        |> match statement with 
+            | NativeAssemblyLines _ -> id 
+            | _ -> append1 (Line.comment <| string statement) 
+        |> translateStatement statement) writer statements
 
 let translateProc (con: Context) (procedure: AsmbProcedure): Procedure =
     let con = 

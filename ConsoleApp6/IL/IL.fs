@@ -25,20 +25,28 @@ module JumpType =
         | JNG -> JG  | JNL -> JL   | JNE -> JE
         | JGE -> JL  | JLE -> JG
         | JMP -> failwithf ""
+
 type ABCD = 
     A | B | C | D
     override t.ToString() = match t with A -> "a" | B -> "b" | C -> "c" | D -> "d"
-type RegType = 
-    L | H | X | EX
-    member t.ToStringWith(abcd: ABCD) = 
-        match t with 
+
+type RegType = L | H | X | EX
+module RegType =
+    let stringWith abcd typ = 
+        abcd |>
+        match typ with 
         | L -> sprintf "%Ol"
         | H -> sprintf "%Oh"
         | X -> sprintf "%Ox"
         | EX -> sprintf "e%Ox"
-        <| abcd
-    member t.Size = match t with L | H -> Byte | X -> Word | EX -> DWord
-    static member FromSize(size: Size, ?low: RegType) = match size with Void -> invalidArg "There is no register of size Void!" "size" | Byte -> defaultArg low L | Word -> X | DWord -> EX 
+    let contains typ typ2 = 
+        match typ2 with 
+        | EX -> true
+        | X -> typ <> EX
+        | H | L -> typ = typ2
+    let size = function L | H -> Byte | X -> Word | EX -> DWord
+    let fromSize (low: RegType) (size: Size) = match size with Void -> invalidArg "There is no register of size Void!" "size" | Byte -> low | Word -> X | DWord -> EX 
+
 ///<summary>An assembly register - or global variable</summary>
 type Register = 
     | ABCDReg of ABCD * RegType
@@ -47,23 +55,39 @@ type Register =
     | Var of string * Size
     override t.ToString () =
         match t with
-        | ABCDReg (abcd, typ) -> typ.ToStringWith abcd
+        | ABCDReg (abcd, typ) -> RegType.stringWith abcd typ
         | SP -> "sp"
         | BP -> "bp"
         | DI -> "di"
         | Var (id,_) -> sprintf "[%s]" id
 module Register =
     let size = function
-        | ABCDReg (_, t) -> t.Size
+        | ABCDReg (_, t) -> RegType.size t
         | DI | BP | SP -> Word
         | Var (_,s) -> s
-    let fromSize x s = ABCDReg (x, RegType.FromSize s) 
+    /// default for byte is L
+    let fromSize x s = ABCDReg (x, RegType.fromSize L s) 
+
+    let contains r1 r2 =
+        match r1, r2 with
+        | _ when r1 = r2 -> true
+        | ABCDReg (abcd,typ), ABCDReg(abcd',typ') ->
+            abcd = abcd' && RegType.contains typ typ'
+        | _ -> false
+
+    let (|Contains|_|) r1 r2 = if contains r1 r2 then Some() else None
 
     module Registers =
         let [al; ah; ax; eax] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(A,t)) 
         let [bl; bh; bx; ebx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(B,t)) 
         let [cl; ch; cx; ecx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(C,t)) 
         let [dl; dh; dx; edx] = [L; H; X; EX] |> List.map (fun t -> ABCDReg(D,t)) 
+        let basicRegisters = [
+            al; ah; ax; eax
+            bl; bh; bx; ebx
+            cl; ch; cx; ecx
+            dl; dh; dx; edx
+        ]
          
 ///<summary>An assembly operand</summary>
 type [<StructuralEquality; NoComparison>] Operand = 
