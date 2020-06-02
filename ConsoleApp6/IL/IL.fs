@@ -75,6 +75,13 @@ module Register =
             abcd = abcd' && RegType.contains typ typ'
         | _ -> false
 
+    /// Do 2 registers share memory?
+    let share r1 r2 =
+        match r1, r2 with
+        | _ when r1 = r2 -> true
+        | ABCDReg (abcd, _), ABCDReg (abcd', _) -> abcd = abcd'
+        | _ -> false
+
     let (|Contains|_|) r1 r2 = if contains r1 r2 then Some() else None
 
     module Registers =
@@ -105,6 +112,14 @@ module Operand =
         | Constent c -> Literal.size c
         | Index (_,_,_,s) -> s
         | Reg r -> Register.size r
+    //let contains r o =
+    //    match o with
+    //    | Constent _ -> false
+    //    | Reg r' | Index (r', _, _, _) -> r' = r
+    let uses r o =
+        match o with
+        | Constent _ -> false
+        | Reg r' | Index (r', _, _, _) -> Register.share r r'
 
 ///<summary>An assembly instruction or label or such. Anything that will be a single line</summary>
 type Line = 
@@ -134,13 +149,13 @@ module Line =
         | L -> [mov0 (ABCDReg (abcd, H)); make "push" [Reg (ABCDReg (abcd, X))]]
         | H -> mov (ABCDReg (abcd, L)) (Reg reg) :: push (ABCDReg(abcd, L))
         | X | EX -> [make "push" [Reg reg]]
-        | EX -> [make "push" [Reg (ABCDReg(abcd,X))]; make "shr" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "push" [Reg (ABCDReg(abcd,X))]]
+        //| EX -> [make "push" [Reg (ABCDReg(abcd,X))]; make "shr" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "push" [Reg (ABCDReg(abcd,X))]]
     let pop (ABCDReg (abcd, typ) as reg) =        
         match typ with
         | L -> [make "pop" [Reg (ABCDReg (abcd, X))]]
         | H -> [make "pop" [Reg (ABCDReg (abcd, X))]; mov reg (Reg <| ABCDReg (abcd, L))]
         | X | EX -> [make "pop" [Reg reg]]
-        | EX -> [make "pop" [Reg (ABCDReg(abcd,X))]; make "shl" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "pop" [Reg (ABCDReg(abcd,X))]]
+        //| EX -> [make "pop" [Reg (ABCDReg(abcd,X))]; make "shl" [Reg (ABCDReg(abcd,EX)); Constent (UInt 16u)]; make "pop" [Reg (ABCDReg(abcd,X))]]
 
 ///<summary>An assembly procedure. proc MyProc ... ret endp</summary>
 type Procedure = { Name: string; Body: lines; Sig: Size * Size list }
