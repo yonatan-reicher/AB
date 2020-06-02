@@ -60,7 +60,7 @@ module Context =
         else
             label, { con with Labels = con.Labels.Add label }
 
-    let private labelString (str: string) = String.map (function c when List.contains c (['a'..'z']@['0'..'9']@['A'..'Z']) -> c | _ -> '_') str
+    let private labelString (str: string) = String.map (function c when List.contains c (['a'..'z']@['0'..'9']@['A'..'Z']) -> c | _ -> '_') str |> fun x -> x.Trim('_')
     
     let makeLabel con (cat: LabelCatagory) (cond: Expr) (comment: string option) = 
         sprintf "%A_%O_%s" cat cond (defaultArg comment "")
