@@ -100,6 +100,10 @@ module Optimizer =
                 None
             | _ -> None)
 
+        let removeAddSub0 = Optimizer(1, (), fun _ -> function
+            | Inst(("add" | "sub"), [_; Constent (UInt 0u)]) :: r -> Some r
+            | _ -> None)
+
         let removeRegisterHopping = Optimizer(3, (), fun _ -> function 
             |   RegSetter (a, firstSetter) 
               ::MovReg (b, Reg a')
@@ -158,6 +162,7 @@ let runAllOptimizers =
             optimize removeRegisterHopping
             optimize removeUnusedMovs
             optimize redundentPushBlockPop
+            optimize removeAddSub0
         ]
         [for r in Register.Registers.basicRegisters -> optimize (redundantMov0 r)]
     ])
