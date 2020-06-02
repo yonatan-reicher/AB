@@ -93,7 +93,7 @@ let pstatement =
         pstring "return" >>. spaces >>. opt pexpr |>> Return    
         pstring "push#" >>. spaces >>. pexpr |>> UnsafePush
         pstring "pop#" >>. spaces >>. pexpr |>> UnsafePop
-        pstring "###" >>. spaces >>. manyCharsTill anyChar (pstring "###") |>> fun x -> x.Replace("\r\n", "\n").Split('\n') |> Array.map(fun s -> s.Trim()) |> NativeAssemblyLines
+        pstring "###" >>. spaces >>. manyCharsTill anyChar (pstring "###") |>> fun x -> x.Replace("\r\n", "\n").Split('\n') |> Seq.map(fun s -> s.Trim()) |> Seq.where ((<>) "") |> Array.ofSeq |> NativeAssemblyLines
         pstring "pushpop" >>. spaces >>. sepBy1 pterm (pchar ',' >>. spaces) .>>. pblock |>> Pushpop
         pstring "if" >>. spaces >>. tuple3 pexpr pblock (pstring "else" >>. spaces >>. pblock) |>> IfElse
         pstring "while" >>. spaces >>. pexpr .>>. pblock |>> While
