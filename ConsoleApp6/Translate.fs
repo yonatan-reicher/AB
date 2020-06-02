@@ -218,14 +218,16 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append1 IndentOut
                 >> append1 (Line.make "pop" [Reg BP])
                 >> append (Line.push r))
-    | Convert (expr, size) ->
-        let aRet = Register.fromSize A size
-        exprSize expr (Register.fromSize A >> fun aGet ->
-            translateExpr expr
-            >> (if aRet = aGet then id
-                else append1 (Line.mov0 aRet)
-                     >> append (Line.pop aGet)
-                     >> append (Line.push aRet)))
+    | Convert (expr, retSize) ->
+        translateExpr expr
+        >> exprSize expr (fun getSize -> 
+            if retSize = getSize then id 
+            else 
+                let aRet = Register.fromSize A retSize
+                let aGet = Register.fromSize A getSize
+                append1 (Line.mov0 aRet)
+                >> append (Line.pop aGet)
+                >> append (Line.push aRet))
 
 let translateAssignTo (expr: Expr): LineWriter -> LineWriter = 
     match expr with
