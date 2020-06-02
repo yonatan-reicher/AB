@@ -114,7 +114,7 @@ let rec translateBiEquationOper oppositeJumpType expr e1 e2 =
 
 and translateExpr (expr: Expr): LineWriter -> LineWriter = 
     match expr with
-    | Expr.Constent l -> 
+    | Expr.Constent l | Convert(Expr.Constent l, _) -> 
         exprSize expr (Register.fromSize A >> fun r -> 
             append (Line.mov r (Constent l) :: Line.push r))
     | Variable name -> pushVar name
