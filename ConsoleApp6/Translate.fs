@@ -99,6 +99,7 @@ open LineWriter
 let jmpFromOper = function  | EQ -> JE | NEQ -> JNE 
                             | Greater -> JG | Lesser -> JL
                             | NGreater -> JNG | NLesser -> JNL
+                            | x -> invalidArg "_arg1" (sprintf "Cannot use jmpFromOper on %O!" x)
 
 let rec translateBiEquationOper oppositeJumpType expr e1 e2 = 
     makeLabel (TrueLabel, expr, None) (fun equalLabel ->
