@@ -358,19 +358,16 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         //@ trueLines
         //@ [IndentOut]
         //@ falseLines*)
-    | While (cond, block) -> 
-        exprSize cond (Register.fromSize A >> fun r -> 
-            makeLabel (LoopLabel, cond, block.Comment) (fun loop -> 
-                makeLabel (EndLabel, cond, block.Comment) (fun skip -> 
-                    append1 (Line.Label loop)
-                    >> translateExpr cond
-                    >> append (Line.pop r)
-                    >> append [Line.make "cmp" [Reg r; Constent <| UInt 0u]; Line.Jump (JE, skip)]
-                    >> append1 IndentIn
-                    >> translateBlock block
-                    >> append1 (Jump (JMP, loop))
-                    >> append1 IndentOut
-                    >> append1 (Line.Label skip))))
+    | While (cond, block) ->
+        makeLabel (EndLabel, cond, None) (fun skip ->
+            makeLabel (LoopLabel, cond, block.Comment) (fun loop ->
+                append1 (Line.Label loop)
+                >> translateCondition skip cond
+                >> append1 IndentIn
+                >> translateBlock block
+                >> append1 (Jump (JMP, loop)))
+            >> append1 IndentOut
+            >> append1 (Line.Label skip))
     | Return None -> //translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
         procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
         >> paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))
