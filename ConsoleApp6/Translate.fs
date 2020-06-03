@@ -248,6 +248,26 @@ let translateAssignTo (expr: Expr): LineWriter -> LineWriter =
             >> append1 (Line.make "mov" [Index (DI, UInt 0u, true, DWord); Reg r]))
     | _ -> invalidArg "expr" (sprintf "Can only assign to variables. Was a %O" expr)
 
+let translateCondition falseLabel cond = 
+        match cond with
+        | BiOperation(BiOperator.Equation as o, e1, e2) -> 
+            exprSize e1 (fun size1 -> 
+                exprSize e2 (fun size2 -> 
+                    let size = Size.max size1 size2
+                    let r1, r2 = Register.fromSize A size, Register.fromSize D size
+                    translateExpr (Convert(e1, size))
+                    >> translateExpr (Convert(e2, size))
+                    >> append (Line.pop r2)
+                    >> append (Line.pop r1)
+                    >> append1 (Line.make "cmp" [Reg r1; Reg r2])))
+            >> append1 (Jump(JumpType.not (jmpFromOper o), falseLabel)) 
+        | _ ->
+            translateExpr cond
+            >> exprSize cond (Register.fromSize A >> fun r -> 
+                append (Line.pop r)
+                >> append1 (Line.make "cmp" [Reg r; Constent <| UInt 0u]))
+            >> append1 (Line.Jump (JE, falseLabel))
+
 let rec translateStatement (statement: Statement): LineWriter -> LineWriter = 
     match statement with
     | Pushpop ([], block) -> 
@@ -276,29 +296,9 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         declare (name, size) >> translateExpr (Convert (expr, size))
     | Statement.Comment c -> id //[Line.Comment c]
     | IfElse (cond, trueBlock, falseBlock) ->
-        let appendCmpJmp skipIf = function
-            | BiOperation(BiOperator.Equation as o, e1, e2) -> 
-                exprSize e1 (fun size1 -> 
-                    exprSize e2 (fun size2 -> 
-                        let size = Size.max size1 size2
-                        let r1, r2 = Register.fromSize A size, Register.fromSize D size
-                        let jmp = JumpType.not (jmpFromOper o)
-                        translateExpr (Convert(e1, size))
-                        >> translateExpr (Convert(e2, size))
-                        >> append (Line.pop r2)
-                        >> append (Line.pop r1)
-                        >> append1 (Line.make "cmp" [Reg r1; Reg r2])
-                        >> append1 (Jump(jmp, skipIf)) ))
-            | _ ->
-                exprSize cond (Register.fromSize A >> fun r -> 
-                translateExpr cond
-                >> append (Line.pop r)
-                >> append1 (Line.make "cmp" [Reg r; Constent <| UInt 0u]) 
-                >> append1 (Line.Jump (JE, skipIf)))
-
         let appendIfBody skipElse =
             makeLabel (SkipIf, cond, falseBlock |> Option.bind (fun b -> b.Comment)) (fun skipIf ->
-                appendCmpJmp skipIf cond
+                translateCondition skipIf cond
                 >> append1 IndentIn
                 >> translateBlock trueBlock
                 >> match skipElse with Some skipElse -> append1 (Jump (JMP, skipElse)) | None -> id
