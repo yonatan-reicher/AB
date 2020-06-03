@@ -72,10 +72,16 @@ type LineWriter = { Lines: lines; Context: Context }
 module LineWriter =
     let empty = { Lines=[]; Context=Context.empty}
     let ofContext context = { empty with Context = context }
+
     let append lines writer = { writer with Lines = writer.Lines @ lines }
     let append1 line = append [line]
+
+    let indented continuation = append1 IndentIn >> continuation >> append1 IndentOut
+
     let declare (name, size) writer = { writer with Context = Context.declare (name, size) writer.Context }
+
     let exprSize expr continuation (writer: LineWriter): LineWriter = continuation <| Context.exprSize expr writer.Context <| writer
+
     let makeLabel (cat, cond, comment) continuation writer = 
         let label, con = Context.makeLabel writer.Context cat cond comment
         continuation label { writer with Context = con }
@@ -269,7 +275,46 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
     | StackDeclare (name, size, Some expr) ->
         declare (name, size) >> translateExpr (Convert (expr, size))
     | Statement.Comment c -> id //[Line.Comment c]
-    | IfElse (BiOperation(BiOperator.Equation as o, e1, e2) as cond, trueBlock, falseBlock) ->
+    | IfElse (cond, trueBlock, falseBlock) ->
+        let appendCmpJmp skipIf = function
+            | BiOperation(BiOperator.Equation as o, e1, e2) -> 
+                exprSize e1 (fun size1 -> 
+                    exprSize e2 (fun size2 -> 
+                        let size = Size.max size1 size2
+                        let r1, r2 = Register.fromSize A size, Register.fromSize D size
+                        let jmp = JumpType.not (jmpFromOper o)
+                        translateExpr (Convert(e1, size))
+                        >> translateExpr (Convert(e2, size))
+                        >> append (Line.pop r2)
+                        >> append (Line.pop r1)
+                        >> append1 (Line.make "cmp" [Reg r1; Reg r2])
+                        >> append1 (Jump(jmp, skipIf)) ))
+            | _ ->
+                exprSize cond (Register.fromSize A >> fun r -> 
+                translateExpr cond
+                >> append (Line.pop r)
+                >> append1 (Line.make "cmp" [Reg r; Constent <| UInt 0u]) 
+                >> append1 (Line.Jump (JE, skipIf)))
+
+        let appendIfBody skipElse =
+            makeLabel (SkipIf, cond, falseBlock |> Option.bind (fun b -> b.Comment)) (fun skipIf ->
+                appendCmpJmp skipIf cond
+                >> append1 IndentIn
+                >> translateBlock trueBlock
+                >> match skipElse with Some skipElse -> append1 (Jump (JMP, skipElse)) | None -> id
+                >> append1 IndentOut
+                >> append1 (Line.Label skipIf))
+
+        match falseBlock with
+        | None -> 
+            appendIfBody None
+        | Some falseBlock -> 
+            makeLabel(SkipElse, cond, falseBlock.Comment) (fun skipElse ->
+                appendIfBody (Some skipElse)
+                >> translateBlock falseBlock
+                >> append1 (Line.Label skipElse)) 
+    (*  
+    | IfElse (BiOperation(BiOperator.Equation as o, e1, e2) as cond, trueBlock, Some falseBlock) ->
         let jmp = JumpType.not (jmpFromOper o)
         exprSize e1 (fun size1 ->
             exprSize e2 (fun size2 ->
@@ -290,7 +335,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
                         >> append1 (Line.Label skipIf)
                         >> translateBlock falseBlock)
                         >> append1 (Line.Label skipElse))))
-    | IfElse (cond, trueBlock, falseBlock) ->
+    | IfElse (cond, trueBlock, Some falseBlock) ->
         exprSize cond (Register.fromSize A >> fun r -> 
             makeLabel (SkipElse, cond, trueBlock.Comment) (fun skipElse -> 
                 makeLabel (SkipIf, cond, falseBlock.Comment) (fun skipIf -> 
@@ -312,7 +357,7 @@ let rec translateStatement (statement: Statement): LineWriter -> LineWriter =
         //@ [IndentIn]
         //@ trueLines
         //@ [IndentOut]
-        //@ falseLines
+        //@ falseLines*)
     | While (cond, block) -> 
         exprSize cond (Register.fromSize A >> fun r -> 
             makeLabel (LoopLabel, cond, block.Comment) (fun loop -> 

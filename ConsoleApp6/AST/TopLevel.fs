@@ -65,7 +65,7 @@ module Expr =
 
 type Statement =
     | Pushpop of Expr list * Block
-    | IfElse of cond: Expr * trueBlock: Block * falseBlock: Block
+    | IfElse of cond: Expr * trueBlock: Block * falseBlock: Block option
     | While of Expr * Block
     | Assign of Expr * Expr
     | SideEffect of Expr
@@ -95,12 +95,15 @@ and Block =
     | Block of comment: string option * Statement list
     member t.Comment = match t with Block (comment,_) -> comment
 
-module Statement =
+module rec Statement =
     /// A sequence containing all the expressions in a statement
     let rec exprs = function
         | Pushpop(exprs, block) -> Seq.append exprs (blockExprs block)
         | IfElse(cond, trueBlock, falseBlock) -> 
-            Seq.append [cond] (blockExprs trueBlock) |> Seq.append (blockExprs falseBlock)
+            Seq.append [cond] (blockExprs trueBlock) 
+            |> match falseBlock with 
+                | Some block -> Seq.append (blockExprs block)
+                | None -> id
         | While(expr, block) -> Seq.append [expr] (blockExprs block)
         | Assign(expr1, expr2) -> seq {expr1; expr2}
         | SideEffect expr 
