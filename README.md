@@ -24,18 +24,22 @@ Here is an example program:
 ```
 func void print(x byte) {
     push# x;
-    ### pop dx      ###
-    ### mov ah, 2h  ###
-    ### int 21h     ###
+    ### 
+        pop dx      
+        mov ah, 2h 
+        int 21h     
+    ###
     return;
 }
 
 func byte read_char() {
     ret byte = 0;	
-    ### mov ah,00h      ###
-    ### int 16h         ###
-    ### mov ah, 0       ###
-    ### push ax         ###
+    ### 
+        mov ah,00h      
+        int 16h         
+        mov ah, 0       
+        push ax         
+    ###
     pop# ret;
     return ret;
 }
@@ -176,8 +180,7 @@ proc main
         ;       return 0
         mov ax, 0
         add sp, 4
-        pop dx
-        add sp, 0
+        pop dx\
         mov ah, 0
         push ax
         push dx
