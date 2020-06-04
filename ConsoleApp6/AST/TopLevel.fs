@@ -120,12 +120,18 @@ module rec Statement =
     let functions = exprs >> Seq.collect Expr.functions
     let blockFunctions = blockExprs >> Seq.collect Expr.functions
  
-type AsmbProcedure = 
-    {  ProcName: string
-       ProcBody: Block
+type Function = 
+    {  Name: string
+       Body: Block
        Parameters: (string * Size) list
-       RetSize: Size                       }
+       RetSize: Size    }
     member t.Sig: ProcSig = t.RetSize, List.map snd t.Parameters
+let (|Function|) (x: Function) = x
+module Function =
+    let name ({ Name = name }: Function) = name
+    let body ({ Body = body }: Function) = body
+    let parameters ({ Parameters = parameters }: Function) = parameters
+    let signature (f: Function) = f.Sig
 
 type AsmbProgram = {    ProgVariables: (string * Size * Literal list) list
-                        ProgProcedures: AsmbProcedure list               }
+                        ProgFunctions: Function list               }

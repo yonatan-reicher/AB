@@ -336,7 +336,7 @@ and translateBlock (Block (_, statements)) writer: LineWriter =
             | _ -> append1 (Line.comment <| string statement) 
         |> translateStatement statement) writer statements
 
-let translateProc (con: Context) (procedure: AsmbProcedure): Procedure =
+let translateProc (con: Context) (procedure: Function): Procedure =
     let con = 
         { con with 
             ParamStack = procedure.Sig |> snd |> Seq.sumBy Size.bytes
@@ -348,13 +348,27 @@ let translateProc (con: Context) (procedure: AsmbProcedure): Procedure =
                     (con.Vars, 2u)
                     procedure.Parameters //   2u is the number of bytes stored as the line pointer
                 |> fst }
-    { Name = procedure.ProcName
+    { Name = procedure.Name
       Sig = procedure.Sig
-      Body = Line.mov BP (Reg SP) :: (translateBlock procedure.ProcBody <| LineWriter.ofContext con).Lines }
+      Body = Line.mov BP (Reg SP) :: (translateBlock procedure.Body <| LineWriter.ofContext con).Lines }
 
 let translateProgram (program: AsmbProgram): Program =
-    let con = 
-        Context.make 
-        <| List.map (fun x -> x.ProcName, x.Sig) program.ProgProcedures 
-        <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
-    { StackSize = 16*16*16; Data = program.ProgVariables; Code = List.map (translateProc con) program.ProgProcedures }
+    match program.ProgFunctions |> List.tryFind (fun x -> x.Name = "main" && x.Sig = (Byte, [])) with 
+    | None ->
+        failwithf "The program needs a 'main' function defined like this: \nfunc byte main() { ... }"
+    | Some main -> 
+        let funcs = 
+            let allFuncs = program.ProgFunctions |> Seq.map (fun x -> x.Name, x) |> Map.ofSeq
+            let mutable funcs, nextFuncs = [], [main]
+            while not <| List.isEmpty nextFuncs do
+                funcs <- Seq.append nextFuncs funcs |> Seq.distinct |> List.ofSeq
+                nextFuncs <- 
+                    List.ofSeq (Seq.collect (Function.body >> Statement.blockFunctions) nextFuncs 
+                                |> Seq.map (fun name -> allFuncs.[name])) 
+            funcs 
+
+        let con = 
+            Context.make 
+            <| Seq.map (function Function x -> x.Name, x.Sig) funcs
+            <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
+        { StackSize = 16*16*16; Data = program.ProgVariables; Code = [for f in funcs -> translateProc con f] }

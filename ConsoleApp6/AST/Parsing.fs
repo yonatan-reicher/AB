@@ -123,7 +123,7 @@ let pproc =
     pstring "func" >>. spaces >>. psize .>>. pidentifier 
     .>> pchar '(' .>> spaces .>>. sepBy parameter (pchar ',' >>. spaces) .>> pchar ')' .>> spaces
     .>>. pblock
-    |>> fun (((ret,id),param),s) -> {ProcName = id; ProcBody = s; Parameters = param; RetSize = ret}
+    |>> fun (((ret,id),param),s) -> {Name = id; Body = s; Parameters = param; RetSize = ret}
         
 let pprogram = 
     let parray: _ Parser = 
@@ -136,4 +136,4 @@ let pprogram =
         tuple3 pidentifier psize <| opt (pstring "<-" >>. spaces >>. parray)
 
     spaces >>. (*many variableDeclaration*) preturn [] .>> many pcomment .>>. many1 (pproc .>> many pcomment).>> eof
-    |>> fun (vars,procs) -> {ProgProcedures = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
+    |>> fun (vars,procs) -> {ProgFunctions = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
