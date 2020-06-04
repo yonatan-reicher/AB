@@ -5,9 +5,13 @@ This project was started for learning about tasm, about assmbly and about code t
 I'm very proud of it in it's current state and will keep updating it until it is usable!
 
 ## Downloads and dependencies
-You can download the .exe from [This link](https://drive.google.com/drive/folders/1VJPPnGVQNaFvDaarGW5-Mz5avbziCB5r?usp=sharing)
+~You can download the .exe from [This link](https://drive.google.com/drive/folders/1VJPPnGVQNaFvDaarGW5-Mz5avbziCB5r?usp=sharing)~
+You can download the exe with the dlls in the releases tab.
 
-To use it you have to download and install DOSBOX and TASM from the interwebs
+To use it you have to download and install DOSBOX and TASM from the interwebs.
+It would be easier to work with the compiler if your dosbox and tasm folder paths are as follows:
+
+tasm: "C:\TASM", dosbox: "C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe"
 
 ## Using The compiler 
 Once you have downloaded it you need to have the .exe in a folder with the dlls and open the cmd there
