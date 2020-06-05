@@ -135,5 +135,5 @@ let pprogram =
     let variableDeclaration = 
         tuple3 pidentifier psize <| opt (pstring "<-" >>. spaces >>. parray)
 
-    spaces >>. (*many variableDeclaration*) preturn [] .>> many pcomment .>>. many1 (pproc .>> many pcomment).>> eof
+    spaces >>. (*many variableDeclaration*) preturn [] .>> many (pcomment .>> spaces) .>>. many1 (pproc .>> many (pcomment .>> spaces)).>> eof
     |>> fun (vars,procs) -> {ProgFunctions = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
