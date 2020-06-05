@@ -6,7 +6,7 @@ open FParsec
 open Asmb.AST.Parsing
 open Asmb.IL.Optimization
 open Asmb.IL.Write
-open Asmb.Translate
+open Asmb.Translate.Main
 
 module Interop = 
     open System.Runtime.InteropServices

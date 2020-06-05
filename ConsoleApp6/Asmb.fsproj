@@ -12,7 +12,12 @@
     <Compile Include="IL\IL.fs" />
     <Compile Include="IL\Write.fs" />
     <Compile Include="IL\Optimization.fs" />
-    <Compile Include="Translate.fs" />
+    <Compile Include="Translate\Translate.fs" />
+    <Compile Include="Translate\Context.fs" />
+    <Compile Include="Translate\LineWriter.fs" />
+    <Compile Include="Translate\WriteExpr.fs" />
+    <Compile Include="Translate\WriteStatement.fs" />
+    <Compile Include="Translate\Main.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
