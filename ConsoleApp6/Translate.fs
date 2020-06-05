@@ -364,7 +364,8 @@ let translateProgram (program: AsmbProgram): Program =
                 funcs <- Seq.append nextFuncs funcs |> Seq.distinct |> List.ofSeq
                 nextFuncs <- 
                     List.ofSeq (Seq.collect (Function.body >> Statement.blockFunctions) nextFuncs 
-                                |> Seq.map (fun name -> allFuncs.[name])) 
+                                |> Seq.map (fun name -> allFuncs.[name])
+                                |> Seq.filter(fun f -> not (List.contains f funcs))) 
             funcs 
 
         let con = 
