@@ -23,13 +23,18 @@ let translateFunction (con: Context) (func: Function): Procedure =
       Body = Line.mov BP (Reg SP) :: (writeBlock func.Body <| LineWriter.ofContext con).Lines }
 
 
-let translateProgram (program: AsmbProgram): Program =
+let translateProgram libs (program: AsmbProgram): Program =
     match program.ProgFunctions |> List.tryFind (fun x -> x.Name = "main" && x.Sig = (Byte, [])) with 
     | None ->
         failwithf "The program needs a 'main' function defined like this: \nfunc byte main() { ... }"
     | Some main -> 
         let funcs = 
-            let allFuncs = program.ProgFunctions |> Seq.map (fun x -> x.Name, x) |> Map.ofSeq
+            let allFuncs = 
+                Seq.append libs [program] 
+                |> Seq.map (fun x -> x.ProgFunctions) 
+                |> Seq.collect id 
+                |> Seq.map (fun x -> x.Name, x) 
+                |> Map.ofSeq
             let mutable funcs, nextFuncs = [], [main]
             while not <| List.isEmpty nextFuncs do
                 funcs <- Seq.append nextFuncs funcs |> Seq.distinct |> List.ofSeq
@@ -44,3 +49,15 @@ let translateProgram (program: AsmbProgram): Program =
             <| Seq.map (function Function x -> x.Name, x.Sig) funcs
             <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
         { StackSize = 16*16*16; Data = program.ProgVariables; Code = [for f in funcs -> translateFunction con f] }
+
+
+open System.Runtime.Serialization.Formatters.Binary
+
+let writeProgramToStream (stream: (*FileStream*)_) (program: AsmbProgram) =
+    let b = BinaryFormatter()
+    b.Serialize(stream, program)
+    ()
+
+let readProgramFromStream (stream): AsmbProgram =
+    let b = BinaryFormatter()
+    b.Deserialize stream :?> AsmbProgram

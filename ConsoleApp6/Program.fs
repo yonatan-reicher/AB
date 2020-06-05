@@ -3,9 +3,10 @@ open System.Diagnostics
 open System.IO
 
 open FParsec
-open Asmb.AST.Parsing
-open Asmb.IL.Optimization
-open Asmb.IL.Write
+open Asmb
+//open Asmb.AST.Parsing
+//open Asmb.IL.Optimization
+//open Asmb.IL.Write
 open Asmb.Translate.Main
 
 module Interop = 
@@ -47,18 +48,23 @@ module Interop =
 let defaultTasmPath = @"C:\TASM"
 let defaultDosboxPath = @"C:\Program Files (x86)\DOSBox-0.74-3\DOSBox.exe"
 
+let textToAsmbProgram sourceCode: Result<_,_> = 
+    match run Asmb.AST.Parsing.pprogram sourceCode with
+    | Failure (error, _, _) -> Result.Error error
+    | Success (asmbProgram, (), _) -> Result.Ok asmbProgram 
+
 /// Compiles asmb code from a given source file from the TASM folder. fileName is the name of the file in the TASM folder (reletive path)
-let compile (dosboxEXEPath: string) (tasmPath: string) (optimize: bool) (fileName: string) =
+let compile (dosboxEXEPath: string) (tasmPath: string) (libs: AST.TopLevel.AsmbProgram seq) (optimize: bool) (fileName: string) =
     let stringPath (folder, file, fileExtension) = sprintf "%s\%s.%s" folder file fileExtension
 
     let fileName = if fileName.EndsWith ".ab" then fileName.[0..fileName.Length-1-3] else fileName
     let sourceCode = File.ReadAllText (stringPath(tasmPath, fileName, "ab"))
     
-    match run pprogram sourceCode with
-    | Failure (error, _, _) -> printfn "%s" error
-    | Success (asmbProgram, (), _) ->
-        let program = translateProgram asmbProgram |> if optimize then optimizeProgram else id
-        let str = writeProg program     
+    match textToAsmbProgram sourceCode with
+    | Result.Error error -> printfn "%s" error
+    | Result.Ok asmbProgram ->
+        let program = translateProgram libs asmbProgram |> if optimize then IL.Optimization.optimizeProgram else id
+        let str = IL.Write.writeProg program     
         printfn "%s" str
         File.WriteAllText(stringPath(tasmPath, fileName, "asm"), str)
         
@@ -67,12 +73,22 @@ let compile (dosboxEXEPath: string) (tasmPath: string) (optimize: bool) (fileNam
         p.WaitForExit()
 
 [<EntryPoint>]
-let rec main args = 
+let rec main args =
     match args with
+    | [|"-lib"; filePath |] ->
+        let filePath = if filePath.EndsWith ".ab" then filePath.[0..filePath.Length-1-3] else filePath
+        let sourcePath = sprintf "%s.ab" filePath
+        use destFile = File.Create (sprintf "%s.ablib" filePath)
+        printfn "Writing '%s' to '%s'" sourcePath destFile.Name
+
+        File.ReadAllText sourcePath
+        |> textToAsmbProgram
+        |> Result.map (writeProgramToStream destFile) 
+        |> function Result.Error e -> printfn "%O" e | Result.Ok () -> printfn "Done!"
     | [|fileName|] ->
-        compile defaultDosboxPath defaultTasmPath true fileName
+        compile defaultDosboxPath defaultTasmPath (seq { use a = File.OpenRead @"C:\TASM\std.ablib" in readProgramFromStream a }) true fileName
     | [|dosboxPath; tasmPath; fileName|] ->
-        compile dosboxPath tasmPath true fileName
-    | _ -> printfn "Incorrect arguments! \nUse: asmb file-name \nor: \nasmb: dosbox-path tasm-folder-path file-name"
+        compile dosboxPath tasmPath Seq.empty true fileName
+    | _ -> printfn "Incorrect arguments! \nUse: \nasmb file-name \nor: \nasmb dosbox-path tasm-folder-path file-name \nor: \nasmb -lib lib-name"
     Console.ReadKey false |> ignore
     0
