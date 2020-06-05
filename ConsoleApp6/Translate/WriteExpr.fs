@@ -12,15 +12,15 @@ let jmpFromOper = function  | EQ -> JE | NEQ -> JNE
                             | NGreater -> JNG | NLesser -> JNL
                             | x -> invalidArg "_arg1" (sprintf "Cannot use jmpFromOper on %O!" x)
 
-let rec translateBiEquationOper oppositeJumpType expr e1 e2 = 
+let rec writeBiEquationOper oppositeJumpType expr e1 e2 = 
     makeLabel (TrueLabel, expr, None) (fun equalLabel ->
         makeLabel (FalseLabel, expr, None) (fun notEqualLabel ->
             exprSize e1 (fun size1 -> 
                 exprSize e2 (fun size2 ->
                     let size = Size.max size1 size2
                     let a, d = Register.fromSize A size, Register.fromSize D size
-                    translateExpr (Convert (e1, size))
-                    >> translateExpr (Convert (e2, size))
+                    writeExpr (Convert (e1, size))
+                    >> writeExpr (Convert (e2, size))
                     >> append (Line.pop d @ Line.pop a)
                     >> append1 (Line.make "cmp" [Reg a; Reg d])
                     >> append1 (Line.Jump(oppositeJumpType, notEqualLabel))
@@ -30,7 +30,7 @@ let rec translateBiEquationOper oppositeJumpType expr e1 e2 =
                     >> append1 (Line.make "push" [Constent <| UInt 0u])
                     >> append1 (Line.Label equalLabel)))))
 
-and translateExpr (expr: Expr): LineWriter -> LineWriter = 
+and writeExpr (expr: Expr): LineWriter -> LineWriter = 
     match expr with
     | Expr.Constent l | Convert(Expr.Constent l, _) -> 
         exprSize expr (Register.fromSize A >> fun r -> 
@@ -41,8 +41,8 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
             exprSize e2 (fun size2 ->
                 let size = Size.max size1 size2
                 let a, d = Register.fromSize A size, Register.fromSize D size
-                translateExpr (Convert (e1, size))
-                >> translateExpr (Convert (e2, size))
+                writeExpr (Convert (e1, size))
+                >> writeExpr (Convert (e2, size))
                 >> append (Line.pop d @ Line.pop a)
                 >> append1 (Line.make (match o with Add -> "add" | Sub -> "sub") [Reg a; Reg d])
                 >> append (Line.push a)
@@ -52,8 +52,8 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
             exprSize e2 (fun size2 ->
                 let size = Size.max size1 size2
                 let a, d = Register.fromSize A size, Register.fromSize D size
-                translateExpr (Convert (e1, size))
-                >> translateExpr (Convert (e2, size))
+                writeExpr (Convert (e1, size))
+                >> writeExpr (Convert (e2, size))
                 >> append (Line.pop d @ Line.pop a)
                 >> append1 (Line.make "mul" [Reg d])
                 >> append (Line.push a)
@@ -63,8 +63,8 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
             exprSize e2 (fun size2 ->
                 let size = Size.max size1 size2
                 let a, b = Register.fromSize A size, Register.fromSize B size
-                translateExpr (Convert (e1, size))
-                >> translateExpr (Convert (e2, size))
+                writeExpr (Convert (e1, size))
+                >> writeExpr (Convert (e2, size))
                 >> append1 (Line.mov0 <| Register.fromSize D size)
                 >> append (Line.pop b @ Line.pop a)
                 >> append1 (Line.make "div" [Reg b])
@@ -73,31 +73,31 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
         exprSize expr (function 
             | Void -> id
             | Byte -> 
-                translateExpr (Convert (e1, Byte))
-                >> translateExpr (Convert (e2, Byte))
+                writeExpr (Convert (e1, Byte))
+                >> writeExpr (Convert (e2, Byte))
                 >> append (Line.pop bl @ Line.pop al)
                 >> append1 (Line.make "div" [Reg bl])
                 >> append (Line.push ah)
             | Word -> 
-                translateExpr (Convert (e1, Word))
-                >> translateExpr (Convert (e2, Word))
+                writeExpr (Convert (e1, Word))
+                >> writeExpr (Convert (e2, Word))
                 >> append1 (Line.mov0 dx)
                 >> append (Line.pop bx @ Line.pop ax)
                 >> append1 (Line.make "div" [Reg bx])
                 >> append (Line.push dx)
             | DWord -> 
-                translateExpr (Convert (e1, DWord))
-                >> translateExpr (Convert (e2, DWord))
+                writeExpr (Convert (e1, DWord))
+                >> writeExpr (Convert (e2, DWord))
                 >> append1 (Line.mov0 edx)
                 >> append (Line.pop ebx @ Line.pop eax)
                 >> append1 (Line.make "div" [Reg ebx])
                 >> append (Line.push edx))
-    | BiOperation (EQ, e1, e2) -> translateBiEquationOper JNE expr e1 e2
-    | BiOperation (NEQ, e1, e2) -> translateBiEquationOper JE expr e1 e2
-    | BiOperation (Greater, e1, e2) -> translateBiEquationOper JNG expr e1 e2
-    | BiOperation (NGreater, e1, e2) -> translateBiEquationOper JG expr e1 e2
-    | BiOperation (Lesser, e1, e2) -> translateBiEquationOper JNL expr e1 e2
-    | BiOperation (NLesser, e1, e2) -> translateBiEquationOper JL expr e1 e2
+    | BiOperation (EQ, e1, e2) -> writeBiEquationOper JNE expr e1 e2
+    | BiOperation (NEQ, e1, e2) -> writeBiEquationOper JE expr e1 e2
+    | BiOperation (Greater, e1, e2) -> writeBiEquationOper JNG expr e1 e2
+    | BiOperation (NGreater, e1, e2) -> writeBiEquationOper JG expr e1 e2
+    | BiOperation (Lesser, e1, e2) -> writeBiEquationOper JNL expr e1 e2
+    | BiOperation (NLesser, e1, e2) -> writeBiEquationOper JL expr e1 e2
     | BiOperation _ -> failwith ""
     | Expr.Call (name, args) ->
         procSig name (function 
@@ -105,7 +105,7 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
                 append1 (Line.make "push" [Reg BP])
                 >> append1 IndentIn
-                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> translateExpr expr) correctSizeArgs
+                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
                 >> append1 (Call name)
                 >> append1 IndentOut
                 >> append1 (Line.make "pop" [Reg BP])
@@ -114,14 +114,14 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
                 append1 (Line.make "push" [Reg BP])
                 >> append1 IndentIn
-                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> translateExpr expr) correctSizeArgs
+                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
                 >> append1 (Call name)
                 >> append (Line.pop r)
                 >> append1 IndentOut
                 >> append1 (Line.make "pop" [Reg BP])
                 >> append (Line.push r))
     | Convert (expr, retSize) ->
-        translateExpr expr
+        writeExpr expr
         >> exprSize expr (fun getSize -> 
             if retSize = getSize then id 
             else 
@@ -131,14 +131,14 @@ and translateExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append (Line.pop aGet)
                 >> append (Line.push aRet))
 
-let translateAssignTo (expr: Expr): LineWriter -> LineWriter = 
+let writeAssignTo (expr: Expr): LineWriter -> LineWriter = 
     match expr with
     | Expr.Variable name -> popVar name
     | UOperation (PointerVal, pointer) ->
         let validateSize size = if size <> Word then failwithf "must be word" else size
 
         exprSize pointer (validateSize >> Register.fromSize A >> fun r ->
-            translateExpr pointer
+            writeExpr pointer
             >> append1 (Line.make "pop" [Reg DI])
             >> append (Line.pop r)
             >> append1 (Line.make "mov" [Index (DI, UInt 0u, true, DWord); Reg r]))

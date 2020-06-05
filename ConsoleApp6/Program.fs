@@ -57,7 +57,7 @@ let compile (dosboxEXEPath: string) (tasmPath: string) (optimize: bool) (fileNam
     match run pprogram sourceCode with
     | Failure (error, _, _) -> printfn "%s" error
     | Success (asmbProgram, (), _) ->
-        let program = translateProgram asmbProgram |> if optimize then optimizeProgram else id
+        let program = writeProgram asmbProgram |> if optimize then optimizeProgram else id
         let str = writeProg program     
         printfn "%s" str
         File.WriteAllText(stringPath(tasmPath, fileName, "asm"), str)
