@@ -6,7 +6,7 @@ open Asmb.IL
 
 open WriteStatement
 
-let writeFunction (con: Context) (func: Function): Procedure =
+let translateFunction (con: Context) (func: Function): Procedure =
     let con = 
         { con with 
             ParamStack = func.Sig |> snd |> Seq.sumBy Size.bytes
@@ -23,7 +23,7 @@ let writeFunction (con: Context) (func: Function): Procedure =
       Body = Line.mov BP (Reg SP) :: (writeBlock func.Body <| LineWriter.ofContext con).Lines }
 
 
-let writeProgram (program: AsmbProgram): Program =
+let translateProgram (program: AsmbProgram): Program =
     match program.ProgFunctions |> List.tryFind (fun x -> x.Name = "main" && x.Sig = (Byte, [])) with 
     | None ->
         failwithf "The program needs a 'main' function defined like this: \nfunc byte main() { ... }"
@@ -43,4 +43,4 @@ let writeProgram (program: AsmbProgram): Program =
             Context.make 
             <| Seq.map (function Function x -> x.Name, x.Sig) funcs
             <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
-        { StackSize = 16*16*16; Data = program.ProgVariables; Code = [for f in funcs -> writeFunction con f] }
+        { StackSize = 16*16*16; Data = program.ProgVariables; Code = [for f in funcs -> translateFunction con f] }
