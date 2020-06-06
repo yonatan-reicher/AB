@@ -29,8 +29,9 @@ let pidentifier : string Parser =
     let isIdentifierFirstChar c = isLetter c || c = '_'
     let isIdentifierChar c = isLetter c || isDigit c || c = '_'
     
-    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> spaces
-    >>= fun s -> if not <| List.contains s keywords then preturn s else fail <| sprintf "Expected an identifier. Found the keyword '%s'" s
+    //>>= fun s -> if not <| List.contains s keywords then preturn s else fail <| sprintf "Expected an identifier. Found the keyword '%s'" s
+    notFollowedByL (choice (Seq.map pstring keywords)) "keyword"
+    >>. many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier" .>> spaces
 
 let pexpr, piexpr = createParserForwardedToRef () 
 //let pidOrIndex = 
@@ -129,11 +130,12 @@ let pprogram =
     let parray: _ Parser = 
         choice [
             pchar '{' >>. spaces >>. sepEndBy1 pliteral (pchar ',' .>> spaces) .>> pchar '}'
-            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral |>> fun (a,b) -> List.replicate a b
-            pliteral |>> List.singleton
+            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral .>> pchar ';' .>> spaces |>> fun (a,b) -> List.replicate a b
+            pliteral .>> pchar ';' .>> spaces |>> List.singleton
         ]
+        .>> spaces
     let variableDeclaration = 
-        tuple3 pidentifier psize <| opt (pstring "<-" >>. spaces >>. parray)
+        tuple3 pidentifier psize <| opt (pstring "=" >>. spaces >>. parray)
 
-    spaces >>. (*many variableDeclaration*) preturn [] .>> many (pcomment .>> spaces) .>>. many1 (pproc .>> many (pcomment .>> spaces)).>> eof
+    spaces >>. many variableDeclaration .>> many (pcomment .>> spaces) .>>. many1 (pproc .>> many (pcomment .>> spaces)).>> eof
     |>> fun (vars,procs) -> {ProgFunctions = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
