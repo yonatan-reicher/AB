@@ -6,7 +6,7 @@ open Asmb
 open Asmb.AST
 open Asmb.IL
 
-let empty = { Lines=[]; Context=Context.empty}
+let empty = { Lines=[]; Context=Context.empty; errors = [] }
 let ofContext context = { empty with Context = context }
 
 let append lines writer = { writer with Lines = writer.Lines @ lines }

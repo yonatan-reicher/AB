@@ -24,5 +24,7 @@ type Context = {    Vars: Map<string, Size * Operand>
                     ParamStack: uint
                     Labels: Label Set
                     Random: System.Random       }
-                    
-type LineWriter = { Lines: lines; Context: Context }
+            
+type CompilationError = CompilationError of Procedure * Statement * message: string * fatal: bool
+
+type LineWriter = { Lines: lines; Context: Context; errors: CompilationError list }
