@@ -73,15 +73,20 @@ let rec writeStatement (statement: Statement): LineWriter -> LineWriter =
                 >> writeBlock falseBlock
                 >> append1 (Line.Label skipElse)) 
     | While (cond, block) ->
-        makeLabel (EndLabel, cond, None) (fun skip ->
-            makeLabel (LoopLabel, cond, block.Comment) (fun loop ->
-                append1 (Line.Label loop)
-                >> writeCondition skip cond
-                >> append1 IndentIn
-                >> writeBlock block
-                >> append1 (Jump (JMP, loop)))
-            >> append1 IndentOut
-            >> append1 (Line.Label skip))
+        func {
+            let! skip = makeLabel (EndLabel, cond, None)
+            do! func {
+                let! loop = makeLabel (LoopLabel, cond, block.Comment)
+                do! append1 (Line.Label loop)
+                do! writeCondition skip cond
+                do! func {
+                    do! indented
+                    do! writeBlock block
+                    do! append1 (Jump (JMP, loop))
+                }
+                do! append1 (Line.Label skip)
+            }
+        }
     | Return None -> //translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
         procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
         >> paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))

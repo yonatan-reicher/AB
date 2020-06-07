@@ -31,12 +31,14 @@ let writeLine (line: Line) =
     | Ret i -> append <| sprintf "ret %d" i
     | Text str -> append str
 
-let writeLines (lines: lines) writer = List.fold (fun writer line -> writeLine line writer) writer lines
+let writeLines (lines: lines) = func { for line in lines do do! writeLine line }
 
-let writeProc { Name = name; Body = body; Sig = ``sig`` } =
-       append (sprintf "proc %s" name)
-    >> indented 1 (writeLines body)
-    >> append (sprintf "endp %s" name)
+let writeProc { Name = name; Body = body } =
+    func {
+       do! append (sprintf "proc %s" name)
+       do! indented 1 (writeLines body)
+       do! append (sprintf "endp %s" name)
+    }
 
 let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
 
@@ -53,11 +55,13 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
         |> appendNewLine
         //      Data
         |> append ".data"
-        |> indented 1 
-            (fun writer -> List.fold (fun writer (name, size, literals) ->
+        |> func {
+            do! indented 1
+            for name, size, literals in vars do
                 let defSize = match size with Byte -> "db" | Word -> "dw" | DWord -> "dd"
                 let strLiterals = List.map string literals |> String.concat ", "
-                append (sprintf "%s %s %s" name defSize strLiterals) writer) writer vars)
+                do! append (sprintf "%s %s %s" name defSize strLiterals)
+        }
         |> appendNewLine
         //      Code
         |> append ".386"
@@ -76,6 +80,10 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
                    append "mov ax, 4C00h"
                 >> append "int 21h")
             >> appendNewLine
-            >> fun writer -> List.fold (fun writer p -> writeProc p writer |> appendNewLine) writer procs)
+            >> func { 
+                for p in procs do 
+                    do! writeProc p 
+                    do! appendNewLine
+            })
         |> append "end"
         |> str

@@ -49,3 +49,13 @@ module Literal =
         | Offset _ -> Word
 
 type ProcSig = Size * Size list
+
+type FuncBuilder() =
+    member inline _.Bind(x: 'a -> 'a, f) = x >> f()
+    member inline _.Bind(x: ('a->'a)->('a->'a), f) = x <| f()
+    member inline _.Bind(x: ('b->('a->'a))->('a->'a), f) = x f
+    member inline _.Zero() = id
+    member inline _.For(xs: seq<'b>, f: 'b -> 'a -> 'a) = fun a -> Seq.fold (fun a b -> f b a) a xs
+    member inline _.Combine(x, y) = x >> y
+    member inline _.Delay x = x ()
+let func = FuncBuilder()

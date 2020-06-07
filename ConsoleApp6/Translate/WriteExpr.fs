@@ -13,28 +13,35 @@ let jmpFromOper = function  | EQ -> JE | NEQ -> JNE
                             | x -> invalidArg "_arg1" (sprintf "Cannot use jmpFromOper on %O!" x)
 
 let rec writeBiEquationOper oppositeJumpType expr e1 e2 = 
-    makeLabel (TrueLabel, expr, None) (fun equalLabel ->
-        makeLabel (FalseLabel, expr, None) (fun notEqualLabel ->
-            exprSize e1 (fun size1 -> 
-                exprSize e2 (fun size2 ->
-                    let size = Size.max size1 size2
-                    let a, d = Register.fromSize A size, Register.fromSize D size
-                    writeExpr (Convert (e1, size))
-                    >> writeExpr (Convert (e2, size))
-                    >> append (Line.pop d @ Line.pop a)
-                    >> append1 (Line.make "cmp" [Reg a; Reg d])
-                    >> append1 (Line.Jump(oppositeJumpType, notEqualLabel))
-                    >> append1 (Line.make "push" [Constent <| UInt 1u])
-                    >> append1 (Line.Jump (JMP, equalLabel))
-                    >> append1 (Line.Label notEqualLabel)
-                    >> append1 (Line.make "push" [Constent <| UInt 0u])
-                    >> append1 (Line.Label equalLabel)))))
+    func {
+        let! equalLabel = makeLabel (TrueLabel, expr, None)
+        let! notEqualLabel = makeLabel(FalseLabel, expr, None)
+        let! s1 = exprSize e1 
+        let! s2 = exprSize e2
+        let size = Size.max s1 s2
+        let a, d = Register.fromSize A size, Register.fromSize D size
+        do! writeExpr (Convert (e1, size))
+        do! writeExpr (Convert (e2, size))
+        do! append (Line.pop d @ Line.pop a)
+        do! append1 (Line.make "cmp" [Reg a; Reg d])
+        do! append1 (Line.Jump(oppositeJumpType, notEqualLabel))
+        do! append1 (Line.make "push" [Constent <| UInt 1u])
+        do! append1 (Line.Jump (JMP, equalLabel))
+        do! append1 (Line.Label notEqualLabel)
+        do! append1 (Line.make "push" [Constent <| UInt 0u])
+        do! append1 (Line.Label equalLabel)
+    }
 
 and writeExpr (expr: Expr): LineWriter -> LineWriter = 
     match expr with
     | Expr.Constent l | Convert(Expr.Constent l, _) -> 
-        exprSize expr (Register.fromSize A >> fun r -> 
-            append (Line.mov r (Constent l) :: Line.push r))
+        func {
+            let! size = exprSize expr
+            let r = Register.fromSize A size
+            do! append (Line.mov r (Constent l) :: Line.push r)
+        }
+        //exprSize expr (Register.fromSize A >> fun r -> 
+        //    append (Line.mov r (Constent l) :: Line.push r))
     | Variable name -> pushVar name
     | BiOperation (Add | Sub as o, e1, e2) ->
         exprSize e1 (fun size1 -> 
