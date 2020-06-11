@@ -12,10 +12,10 @@ type FuncBuilder() =
     member _.Delay x = x ()
 let func = FuncBuilder()
 
+
 type CatchBuilder() =
     member _.Bind(x: Result<'a,'err>, f: 'a->Result<'b,'err>) = Result.bind f x
-    member inline _.Zero(): Result< ^a, 'b > = 
-        Ok LanguagePrimitives.GenericZero< ^a >
+    member inline _.Zero(): Result< ^a, 'b > = Ok LanguagePrimitives.GenericZero< ^a >
     member _.Delay x: 'a = x()
     member _.Combine(x, y: Result<'a,'err>) = Result.bind (fun () -> y) x
     member _.Combine(x: Result<'a,'err>, y) = Result.bind (fun () -> x) y
@@ -27,15 +27,14 @@ type CatchBuilder() =
     member _.ReturnFrom x: 'a = x
     member _.Yield (x: 'a) = Ok x
     member _.YieldFrom x: 'a = x
-    member _.For(xs: 'a seq, f: 'a->Result<'b,'err>): Result<'b seq, 'err> = 
-        let mutable res = Ok []
-        while (match res with Ok _ -> true | Error _ -> false) && not <| Seq.isEmpty xs do
-            let x = Seq.head xs
-            match f x with
-            | Error e -> res <- Error e
-            | Ok x -> res <- Ok (x :: match res with Ok res -> res)
-        Result.map Seq.rev res
+    member _.For(xs: 'a seq, f: 'a -> Result<'b,'err>): Result<'b seq, 'err> = 
+        let rec inner f xs acc =
+            if Seq.isEmpty xs then
+                Ok (Seq.rev acc)
+            else 
+                let x = Seq.head xs
+                match f x with
+                | Error e -> Error e
+                | Ok x -> inner f xs (x :: acc)
+        inner f xs []
 let catch = CatchBuilder()
-        
-module Result =
-    let map2 f x y = catch {let! x = x in let! y = y in return f x y}
