@@ -19,12 +19,18 @@ type LabelCatagory =
 
         
 type Context = {    Vars: Map<string, Size * Operand>
-                    Procs: Map<string, ProcSig>
+                    Funcs: Map<string, FuncSig>
                     ProcedureStack: uint
                     ParamStack: uint
+                    Function: Function
+                    Block: Block
                     Labels: Label Set
                     Random: System.Random       }
             
-type CompilationError = CompilationError of Procedure * Statement * message: string * fatal: bool
+type CompilationError = UndefindedName of string
+type Pos = Pos of Block
+module CompilationError =
+    let (|Fatal|Warning|): CompilationError -> Choice<unit,unit> = function
+        | UndefindedName _ -> Fatal
 
-type LineWriter = { Lines: lines; Context: Context; errors: CompilationError list }
+type LineWriter = { Lines: lines; Context: Context; Errors: (CompilationError * Pos) list }

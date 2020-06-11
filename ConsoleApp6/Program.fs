@@ -7,7 +7,7 @@ open Asmb
 //open Asmb.AST.Parsing
 //open Asmb.IL.Optimization
 //open Asmb.IL.Write
-open Asmb.Translate.Main
+open Asmb.Translate
 
 module Interop = 
     open System.Runtime.InteropServices
@@ -63,14 +63,21 @@ let compile (dosboxEXEPath: string) (tasmPath: string) (libs: AST.TopLevel.AsmbP
     match textToAsmbProgram sourceCode with
     | Result.Error error -> printfn "%s" error
     | Result.Ok asmbProgram ->
-        let program = translateProgram libs asmbProgram |> if optimize then IL.Optimization.optimizeProgram else id
-        let str = IL.Write.writeProg program     
-        printfn "%s" str
-        File.WriteAllText(stringPath(tasmPath, fileName, "asm"), str)
+        let program, errors = translateProgram libs asmbProgram 
+        if Seq.exists (fst >> function CompilationError.Fatal -> true | _ -> false) errors then
+            printfn "Cannot compile the program"
+        else 
+            let program = if optimize then IL.Optimization.optimizeProgram program else program
+            let str = IL.Write.writeProg program     
+            printfn "%s" str
+            File.WriteAllText(stringPath(tasmPath, fileName, "asm"), str)
         
-        use p = System.Diagnostics.Process.Start(dosboxEXEPath, sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
-        Interop.onExit p.Kill
-        p.WaitForExit()
+            use p = System.Diagnostics.Process.Start(dosboxEXEPath, sprintf @"-c ""TASM %s"" -c ""TLINK %s""" fileName fileName)
+            Interop.onExit p.Kill
+            p.WaitForExit()
+
+        printfn "Errors: "
+        for err in errors do printfn "\t%s %A" (match fst err with CompilationError.Fatal -> "ERROR" | _ -> "Warning") (fst err)
 
 [<EntryPoint>]
 let rec main args =

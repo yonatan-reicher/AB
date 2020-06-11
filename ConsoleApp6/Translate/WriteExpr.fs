@@ -16,9 +16,7 @@ let rec writeBiEquationOper oppositeJumpType expr e1 e2 =
     func {
         let! equalLabel = makeLabel (TrueLabel, expr, None)
         let! notEqualLabel = makeLabel(FalseLabel, expr, None)
-        let! s1 = exprSize e1 
-        let! s2 = exprSize e2
-        let size = Size.max s1 s2
+        let! size = maxExprSize e1 e2
         let a, d = Register.fromSize A size, Register.fromSize D size
         do! writeExpr (Convert (e1, size))
         do! writeExpr (Convert (e2, size))
@@ -40,9 +38,8 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
             let r = Register.fromSize A size
             do! append (Line.mov r (Constent l) :: Line.push r)
         }
-        //exprSize expr (Register.fromSize A >> fun r -> 
-        //    append (Line.mov r (Constent l) :: Line.push r))
-    | Variable name -> pushVar name
+    | Variable name -> 
+        pushVar name (addError <| UndefindedName name)
     | BiOperation (Add | Sub as o, e1, e2) ->
         exprSize e1 (fun size1 -> 
             exprSize e2 (fun size2 ->
@@ -107,7 +104,7 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
     | BiOperation (NLesser, e1, e2) -> writeBiEquationOper JL expr e1 e2
     | BiOperation _ -> failwith ""
     | Expr.Call (name, args) ->
-        procSig name (function 
+        procSig name (addError <| UndefindedName name) (function 
             | Void, argSizes ->
                 let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
                 append1 (Line.make "push" [Reg BP])
@@ -140,7 +137,7 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
 
 let writeAssignTo (expr: Expr): LineWriter -> LineWriter = 
     match expr with
-    | Expr.Variable name -> popVar name
+    | Expr.Variable name -> popVar name (addError <| UndefindedName name)
     | UOperation (PointerVal, pointer) ->
         let validateSize size = if size <> Word then failwithf "must be word" else size
 

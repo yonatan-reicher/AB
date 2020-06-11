@@ -43,13 +43,16 @@ type Expr =
 
 module Expr = 
     ///<summary>Returns the size of the value that the expression will return</summary>
-    let rec size (vars: seq<string*Size>, procs: seq<string*ProcSig>) = function
-        | Variable name -> Seq.find (fst >> (=) name) vars |> snd
-        | Constent c -> Literal.size c
-        | BiOperation (o,e1,e2) -> BiOperator.size o (size (vars, procs) e1) (size (vars, procs) e2)
-        | UOperation (o,e) -> UOperator.size o (size (vars, procs) e)
-        | Convert (_,s) -> s        
-        | Call (name,_) -> Seq.find (fst >> (=) name) procs |> snd |> fst
+    let rec size (getVar, getProc): _ -> Result<Size,_> = function
+        | Variable name -> getVar name
+        | Call (name,_) -> getProc name
+        | Constent c -> Ok (Literal.size c)
+        | BiOperation (o,e1,e2) -> 
+            match size (getVar, getProc) e1, size (getVar, getProc) e2 with
+            | Ok s1, Ok s2 -> Ok (BiOperator.size o s1 s2)
+            | Error e, _ | _, Error e -> Error e
+        | UOperation (o,e) -> size (getVar, getProc) e |> Result.map (UOperator.size o)
+        | Convert (_,s) -> Ok s        
 
     let children = function
         | Variable _ 
@@ -125,7 +128,7 @@ type Function =
        Body: Block
        Parameters: (string * Size) list
        RetSize: Size    }
-    member t.Sig: ProcSig = t.RetSize, List.map snd t.Parameters
+    member t.Sig: FuncSig = t.RetSize, List.map snd t.Parameters
 let (|Function|) (x: Function) = x
 module Function =
     let name ({ Name = name }: Function) = name
