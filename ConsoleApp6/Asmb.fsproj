@@ -6,7 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TopLevel.fs" />
+    <Compile Include="Asmb.fs" />
+    <Compile Include="Helpers.fs" />
     <Compile Include="AST\TopLevel.fs" />
     <Compile Include="AST\Parsing.fs" />
     <Compile Include="IL\IL.fs" />
