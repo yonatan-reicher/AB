@@ -20,8 +20,9 @@ module Size =
     let max x y = 
         match x, y with
         | DWord, _ | _, DWord -> DWord
-        | Word, _ | _, Word -> Word
-        | _ -> Byte
+        | Word, _ | _, Word -> Byte
+        | Byte, _ | _, Byte -> Word
+        | Void, _ | _, Void -> Void
     //  Bytes are stored as words on the stack... sorry
     let bytes = function Void -> 0u | Byte -> 2u | Word -> 2u | DWord -> 4u
 
