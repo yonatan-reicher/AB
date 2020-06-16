@@ -26,10 +26,13 @@ type Context = {    Vars: Map<string, Size * Operand>
                     Labels: Label Set
                     Random: System.Random       }
             
-type CompilationError = UndefindedName of string
+type CompilationError = 
+    | UndefindedName of string
+    | UnsupportedFeature of obj*string
 type Pos = Pos of Block
 module CompilationError =
     let (|Fatal|Warning|): CompilationError -> Choice<unit,unit> = function
-        | UndefindedName _ -> Fatal
+        | UndefindedName _
+        | UnsupportedFeature _ -> Fatal
 
 type LineWriter = { Lines: lines; Context: Context; Errors: (CompilationError * Pos) list }
