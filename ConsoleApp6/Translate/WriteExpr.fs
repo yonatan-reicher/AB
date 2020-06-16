@@ -52,16 +52,15 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append (Line.push a)
                 ))
     | BiOperation (Mul, e1, e2) ->
-        exprSize e1 (fun size1 -> 
-            exprSize e2 (fun size2 ->
-                let size = Size.max size1 size2
-                let a, d = Register.fromSize A size, Register.fromSize D size
-                writeExpr (Convert (e1, size))
-                >> writeExpr (Convert (e2, size))
-                >> append (Line.pop d @ Line.pop a)
-                >> append1 (Line.make "mul" [Reg d])
-                >> append (Line.push a)
-                ))
+        func {
+            let! size = maxExprSize e1 e2
+            let a, d = Register.fromSize A size, Register.fromSize D size
+            do! writeExpr (Convert (e1, size))
+            do! writeExpr (Convert (e2, size))
+            do! append (Line.pop d @ Line.pop a)
+            do! append1 (Line.make "mul" [Reg d])
+            do! append (Line.push a)
+        }
     | BiOperation (Div, e1, e2) ->
         exprSize e1 (fun size1 -> 
             exprSize e2 (fun size2 ->

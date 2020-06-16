@@ -40,7 +40,7 @@ let exprSize (expr: Expr) (con: Context) =
               
 let private getVar continuation name (con: Context): lines option = 
     con.Vars.TryFind name |> Option.map (fun (size, oper) -> Register.fromSize A size, oper) |> continuation
-
+ 
 let pushVar name con = getVar (Option.map (fun (r, oper) -> Line.mov r oper :: Line.push r)) name con
 let popVar name con = getVar (Option.map (fun (r, oper) -> Line.pop r @ [Inst("mov", [oper; Reg r])])) name con
 

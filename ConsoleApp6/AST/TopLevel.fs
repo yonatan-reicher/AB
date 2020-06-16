@@ -1,7 +1,7 @@
-﻿[<AutoOpen>]
-module Asmb.AST.TopLevel
+﻿namespace Asmb.AST
 
 open Asmb
+
 
 type BiOperator = 
     | Add | Sub | Mul | Div | Mod
@@ -15,6 +15,7 @@ module BiOperator =
         match x with
         | Arithmetic -> Size.max s1 s2
         | Equation -> Byte
+
 type UOperator =
     | PointerOf | PointerVal  
     | Not
@@ -42,29 +43,33 @@ type Expr =
         | Call (name, param) -> sprintf "%s(%s)" name (param |> List.map string |> String.concat ", ")
 
 module Expr = 
-    ///<summary>Returns the size of the value that the expression will return</summary>
+    /// Returns the size of the value that the expression will return 
     let rec size (getVar, getProc): _ -> Result<Size,_> = function
         | Variable name -> getVar name
         | Call (name,_) -> getProc name
         | Constent c -> Ok (Literal.size c)
         | BiOperation (o,e1,e2) -> 
-            match size (getVar, getProc) e1, size (getVar, getProc) e2 with
-            | Ok s1, Ok s2 -> Ok (BiOperator.size o s1 s2)
-            | Error e, _ | _, Error e -> Error e
-        | UOperation (o,e) -> size (getVar, getProc) e |> Result.map (UOperator.size o)
-        | Convert (_,s) -> Ok s        
+            catch {
+                let! s1 = size (getVar, getProc) e1
+                let! s2 = size (getVar, getProc) e2
+                return BiOperator.size o s1 s2
+            }
+        | UOperation (o,e) -> Result.map (UOperator.size o) (size (getVar, getProc) e)
+        | Convert (_,s) -> Ok s
 
-    let children = function
+    let rec children expr = 
+        match expr with
         | Variable _ 
         | Constent _ -> Seq.empty
         | BiOperation (_, e1, e2) -> seq {e1; e2}
         | UOperation (_, e1) -> seq {e1}
         | Convert (e1, _) -> seq {e1}
         | Call (_, param) -> List.toSeq param
+        |> Seq.collect (fun e -> Seq.append [e] (children e)) 
 
     let rec functions expr = 
-        let start = match expr with Call (name, _) -> seq {name} | _ -> Seq.empty
-        Seq.append start (children expr |> Seq.collect functions)
+        Seq.append [expr] (children expr)
+        |> Seq.choose (function Call (name, _) -> Some name | _ -> None)
 
 type Statement =
     | Pushpop of Expr list * Block
@@ -99,8 +104,9 @@ and Block =
     member t.Comment = match t with Block (comment,_) -> comment
 
 module rec Statement =
-    /// A sequence containing all the expressions in a statement
-    let rec exprs = function
+    /// A sequence containing all the expressions in a statement (Some are nested - use Expr.children)
+    let rec exprs statement = 
+        match statement with
         | Pushpop(exprs, block) -> Seq.append exprs (blockExprs block)
         | IfElse(cond, trueBlock, falseBlock) -> 
             Seq.append [cond] (blockExprs trueBlock) 
@@ -129,7 +135,6 @@ type Function =
        Parameters: (string * Size) list
        RetSize: Size    }
     member t.Sig: FuncSig = t.RetSize, List.map snd t.Parameters
-let (|Function|) (x: Function) = x
 module Function =
     let name ({ Name = name }: Function) = name
     let body ({ Body = body }: Function) = body

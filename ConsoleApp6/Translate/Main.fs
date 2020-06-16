@@ -52,7 +52,7 @@ let translateProgram libs (program: AsmbProgram): Program * _ list =
 
         let conMaker = //   The longer the icon of sin is on earth, the stronger he becomes
             Context.make 
-            <| Seq.map (function Function x -> x.Name, x.Sig) funcs
+            <| Seq.map (fun (x: Function) -> x.Name, x.Sig) funcs
             <| List.map (fun (name,size,_) -> name, size, Reg (Var (name, size))) program.ProgVariables
         let code, errors = List.unzip [for f in funcs -> translateFunction (conMaker f) f]
         let errors = List.collect id errors

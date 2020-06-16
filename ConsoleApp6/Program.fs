@@ -54,7 +54,7 @@ let textToAsmbProgram sourceCode: Result<_,_> =
     | Success (asmbProgram, (), _) -> Result.Ok asmbProgram 
 
 /// Compiles asmb code from a given source file from the TASM folder. fileName is the name of the file in the TASM folder (reletive path)
-let compile (dosboxEXEPath: string) (tasmPath: string) (libs: AST.TopLevel.AsmbProgram seq) (optimize: bool) (fileName: string) =
+let compile (dosboxEXEPath: string) (tasmPath: string) (libs: AST.AsmbProgram seq) (optimize: bool) (fileName: string) =
     let stringPath (folder, file, fileExtension) = sprintf "%s\%s.%s" folder file fileExtension
 
     let fileName = if fileName.EndsWith ".ab" then fileName.[0..fileName.Length-1-3] else fileName
