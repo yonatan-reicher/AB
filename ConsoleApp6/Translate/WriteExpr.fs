@@ -12,25 +12,7 @@ let jmpFromOper = function  | EQ -> JE | NEQ -> JNE
                             | NGreater -> JNG | NLesser -> JNL
                             | x -> invalidArg "_arg1" (sprintf "Cannot use jmpFromOper on %O!" x)
 
-let rec writeBiEquationOper oppositeJumpType expr e1 e2 = 
-    func {
-        let! equalLabel = makeLabel (TrueLabel, expr, None)
-        let! notEqualLabel = makeLabel(FalseLabel, expr, None)
-        let! size = maxExprSize e1 e2
-        let a, d = Register.fromSize A size, Register.fromSize D size
-        do! writeExpr (Convert (e1, size))
-        do! writeExpr (Convert (e2, size))
-        do! append (Line.pop d @ Line.pop a)
-        do! append1 (Line.make "cmp" [Reg a; Reg d])
-        do! append1 (Line.Jump(oppositeJumpType, notEqualLabel))
-        do! append1 (Line.make "push" [Constent <| UInt 1u])
-        do! append1 (Line.Jump (JMP, equalLabel))
-        do! append1 (Line.Label notEqualLabel)
-        do! append1 (Line.make "push" [Constent <| UInt 0u])
-        do! append1 (Line.Label equalLabel)
-    }
-
-and writeExpr (expr: Expr): LineWriter -> LineWriter = 
+let rec writeExpr (expr: Expr): LineWriter -> LineWriter = 
     match expr with
     | Expr.Constent l | Convert(Expr.Constent l, _) -> 
         func {
@@ -53,59 +35,56 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
             do! append1 (Line.make "sete" [Reg outReg])
             do! append (Line.push outReg)
         }        
-    | BiOperation (Add | Sub as o, e1, e2) ->
+    | BiOperation (BiOperator.Arithmetic as o, e1, e2) ->
+        func {
+            let! size = maxExprSize e1 e2                                                       
+            do! writeExpr (Convert (e1, size))
+            do! writeExpr (Convert (e2, size))
+            match o with
+            | Add | Sub ->
+                let a, d = Register.fromSize A size, Register.fromSize D size
+                do! append (Line.pop d @ Line.pop a)
+                do! append1 (Line.make (match o with Add -> "add" | Sub -> "sub" | _ -> failwithf "") [Reg a; Reg d])
+                do! append (Line.push a)
+            | Mul ->
+                let a, d = Register.fromSize A size, Register.fromSize D size
+                do! append (Line.pop d @ Line.pop a)
+                do! append1 (Line.make "mul" [Reg d])
+                do! append (Line.push a)
+            | Div ->
+                let a, b = Register.fromSize A size, Register.fromSize B size
+                do! append1 (Line.mov0 <| Register.fromSize D size)
+                do! append (Line.pop b @ Line.pop a)
+                do! append1 (Line.make "div" [Reg b])
+                do! append (Line.push a)
+            | Mod ->
+                let lhReg, rhReg = Register.fromSize A size, Register.fromSize B size
+                let resReg = match size with Byte -> ah | _ -> Register.fromSize D size
+                do! append1 (Line.mov0 resReg)
+                do! append (Line.pop rhReg @ Line.pop lhReg)
+                do! append1 (Line.make "div" [Reg rhReg])
+                do! append (Line.push resReg)
+            | _ -> do! addError (CompilationError.UnsupportedFeature (o, "Not an arithmetic operator"))
+        }
+    | BiOperation (BiOperator.Equation as o, e1, e2) ->
         func {
             let! size = maxExprSize e1 e2
             let a, d = Register.fromSize A size, Register.fromSize D size
-            do! writeExpr (Convert (e1, size))
-            do! writeExpr (Convert (e2, size))
-            do! append (Line.pop d @ Line.pop a)
-            do! append1 (Line.make (match o with Add -> "add" | Sub -> "sub") [Reg a; Reg d])
-            do! append (Line.push a)
-        }
-    | BiOperation (Mul, e1, e2) ->
-        func {
-            let! size = maxExprSize e1 e2
-            let a, d = Register.fromSize A size, Register.fromSize D size
-            do! writeExpr (Convert (e1, size))
-            do! writeExpr (Convert (e2, size))
-            do! append (Line.pop d @ Line.pop a)
-            do! append1 (Line.make "mul" [Reg d])
-            do! append (Line.push a)
-        }
-    | BiOperation (Div, e1, e2) ->
-        func {
-            let! size = maxExprSize e1 e2
-            let a, b = Register.fromSize A size, Register.fromSize B size
-            do! writeExpr (Convert (e1, size))
-            do! writeExpr (Convert (e2, size))
-            do! append1 (Line.mov0 <| Register.fromSize D size)
-            do! append (Line.pop b @ Line.pop a)
-            do! append1 (Line.make "div" [Reg b])
-            do! append (Line.push a)
-        }
-    | BiOperation (Mod, e1, e2) ->
-        func {
-            let! size = maxExprSize e1 e2
-            do! writeExpr (Convert (e1, size))
-            do! writeExpr (Convert (e2, size))
+            let resReg = Register.fromSize A Byte
+            let setInst = 
+                match o with 
+                | EQ -> "sete" | NEQ -> "setne"
+                | Greater -> "setg" | Lesser -> "setl"
+                | NGreater -> "setng" | NLesser -> "setnl"
+                | _ -> failwithf "Cannot translate %A operator" o
 
-            let lhReg = Register.fromSize A size
-            let rhReg = Register.fromSize B size
-            let resReg = match size with Byte -> ah | _ -> Register.fromSize D size
-
-            do! append1 (Line.mov0 resReg)
-            do! append (Line.pop rhReg @ Line.pop lhReg)
-            do! append1 (Line.make "div" [Reg rhReg])
+            do! writeExpr e1
+            do! writeExpr e2
+            do! append (Line.pop d @ Line.pop a)
+            do! append1 (Line.make "cmp" [Reg a; Reg d])
+            do! append1 (Line.make setInst [Reg resReg])
             do! append (Line.push resReg)
         }
-    | BiOperation (EQ, e1, e2) -> writeBiEquationOper JNE expr e1 e2
-    | BiOperation (NEQ, e1, e2) -> writeBiEquationOper JE expr e1 e2
-    | BiOperation (Greater, e1, e2) -> writeBiEquationOper JNG expr e1 e2
-    | BiOperation (NGreater, e1, e2) -> writeBiEquationOper JG expr e1 e2
-    | BiOperation (Lesser, e1, e2) -> writeBiEquationOper JNL expr e1 e2
-    | BiOperation (NLesser, e1, e2) -> writeBiEquationOper JL expr e1 e2
-    | BiOperation _ -> failwith ""
     | Expr.Call (name, args) ->
         procSig name (addError <| UndefindedName name) (function 
             | Void, argSizes ->
