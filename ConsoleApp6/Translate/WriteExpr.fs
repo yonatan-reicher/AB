@@ -86,26 +86,44 @@ let rec writeExpr (expr: Expr): LineWriter -> LineWriter =
             do! append (Line.push resReg)
         }
     | Expr.Call (name, args) ->
-        procSig name (addError <| UndefindedName name) (function 
-            | Void, argSizes ->
-                let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
-                append1 (Line.make "push" [Reg BP])
-                >> append1 IndentIn
-                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
-                >> append1 (Call name)
-                >> append1 IndentOut
-                >> append1 (Line.make "pop" [Reg BP])
-            | retSize, argSizes -> 
-                let r = Register.fromSize A retSize 
-                let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
-                append1 (Line.make "push" [Reg BP])
-                >> append1 IndentIn
-                >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
-                >> append1 (Call name)
-                >> append (Line.pop r)
-                >> append1 IndentOut
-                >> append1 (Line.make "pop" [Reg BP])
-                >> append (Line.push r))
+        //procSig name (addError <| UndefindedName name) (function 
+        //    | Void, argSizes ->
+        //        let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
+        //        append1 (Line.make "push" [Reg BP])
+        //        >> append1 IndentIn
+        //        >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
+        //        >> append1 (Call name)
+        //        >> append1 IndentOut
+        //        >> append1 (Line.make "pop" [Reg BP])
+        //    | retSize, argSizes -> 
+        //        let r = Register.fromSize A retSize 
+        //        let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
+        //        append1 (Line.make "push" [Reg BP])
+        //        >> append1 IndentIn
+        //        >> Seq.foldBack (fun expr -> append1 (Line.comment (sprintf "parameter %O" expr)) >> writeExpr expr) correctSizeArgs
+        //        >> append1 (Call name)
+        //        >> append (Line.pop r)
+        //        >> append1 IndentOut
+        //        >> append1 (Line.make "pop" [Reg BP])
+        //        >> append (Line.push r))
+        func { 
+            let! (retSize, argSizes) = procSig name (addError <| UndefindedName name)
+            let correctSizeArgs = Seq.map2 (fun e s -> Convert(e,s)) args argSizes
+            do! append1 (Line.make "push" [Reg BP])
+            do! func {
+                do! indented
+                for expr in Seq.rev correctSizeArgs do
+                    do! append1 (Line.comment (sprintf "parameter %O" expr))
+                    do! writeExpr expr
+                do! append1 (Call name)
+            }
+            do! append1 (Line.make "pop" [Reg BP])
+            match retSize with 
+            | Void -> () 
+            | _ -> 
+                let resReg = Register.fromSize A retSize
+                do! append (Line.push resReg)
+        }
     | Convert (expr, retSize) ->
         writeExpr expr
         >> exprSize expr (fun getSize -> 

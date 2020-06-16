@@ -87,20 +87,35 @@ let rec writeStatement (statement: Statement): LineWriter -> LineWriter =
                 do! append1 (Line.Label skip)
             }
         }
-    | Return None -> //translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
-        procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
-        >> paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))
-    | Return (Some expr) ->
-        exprSize expr (Register.fromSize A >> fun a -> 
-            let d = Register.fromSize D Word
-            writeExpr expr
-            >> append (Line.pop a)
-            >> procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
-            >> append1 (Line.make "pop" [Reg d])
-            >> paramStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
-            >> append (Line.push a)
-            >> append (Line.push d)
-            >> append1 (Line.make "ret" []))
+    | Return e ->
+        func {
+            //  Store result
+            match e with
+            | None -> ()
+            | Some e ->
+                let! size = exprSize e
+                let resReg = Register.fromSize A size
+                do! writeExpr e
+                do! append (Line.pop resReg)
+
+            //  Ret
+            do! procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
+            do! paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))
+        }
+    //| Return None -> //translateStatement (Return (Some (Expr.Constent <| UInt 0u)))
+    //    procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
+    //    >> paramStack (fun stack -> append1 (Line.make "ret" [Constent (UInt stack)]))
+    //| Return (Some expr) ->
+    //    exprSize expr (Register.fromSize A >> fun a -> 
+    //        let d = Register.fromSize D Word
+    //        writeExpr expr
+    //        >> append (Line.pop a)
+    //        >> procedureStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
+    //        >> append1 (Line.make "pop" [Reg d])
+    //        >> paramStack (fun stack -> append1 (Line.make "add" [Reg SP; Constent (UInt stack)]))
+    //        >> append (Line.push a)
+    //        >> append (Line.push d)
+    //        >> append1 (Line.make "ret" []))
     | UnsafePush e -> writeExpr e
     | UnsafePop e -> writeAssignTo e
     | NativeAssemblyLines lines -> Seq.map Line.Text lines |> List.ofSeq |> append

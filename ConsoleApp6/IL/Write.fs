@@ -71,7 +71,7 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
                append "mov ax, @data"
             >> append "mov ds, ax"
             >> append "call main"
-            >> append "pop dx"
+            >> append "mov dx, ax"
             >> append "mov ah, 2"
             >> append "add dl, '0'"
             >> append "int 21h"
