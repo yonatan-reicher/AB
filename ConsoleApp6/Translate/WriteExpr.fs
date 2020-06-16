@@ -40,17 +40,29 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
         }
     | Variable name -> 
         pushVar name (addError <| UndefindedName name)
+    | UOperation (UOperator.Not, arg) ->
+        func {
+            let! size = exprSize arg
+
+            let inReg = Register.fromSize A size
+            let outReg = Register.fromSize A Byte
+            
+            do! writeExpr arg
+            do! append (Line.pop inReg)
+            do! append1 (Line.make "cmp" [Reg inReg; Constent (UInt 0u)])
+            do! append1 (Line.make "sete" [Reg outReg])
+            do! append (Line.push outReg)
+        }        
     | BiOperation (Add | Sub as o, e1, e2) ->
-        exprSize e1 (fun size1 -> 
-            exprSize e2 (fun size2 ->
-                let size = Size.max size1 size2
-                let a, d = Register.fromSize A size, Register.fromSize D size
-                writeExpr (Convert (e1, size))
-                >> writeExpr (Convert (e2, size))
-                >> append (Line.pop d @ Line.pop a)
-                >> append1 (Line.make (match o with Add -> "add" | Sub -> "sub") [Reg a; Reg d])
-                >> append (Line.push a)
-                ))
+        func {
+            let! size = maxExprSize e1 e2
+            let a, d = Register.fromSize A size, Register.fromSize D size
+            do! writeExpr (Convert (e1, size))
+            do! writeExpr (Convert (e2, size))
+            do! append (Line.pop d @ Line.pop a)
+            do! append1 (Line.make (match o with Add -> "add" | Sub -> "sub") [Reg a; Reg d])
+            do! append (Line.push a)
+        }
     | BiOperation (Mul, e1, e2) ->
         func {
             let! size = maxExprSize e1 e2
@@ -62,39 +74,31 @@ and writeExpr (expr: Expr): LineWriter -> LineWriter =
             do! append (Line.push a)
         }
     | BiOperation (Div, e1, e2) ->
-        exprSize e1 (fun size1 -> 
-            exprSize e2 (fun size2 ->
-                let size = Size.max size1 size2
-                let a, b = Register.fromSize A size, Register.fromSize B size
-                writeExpr (Convert (e1, size))
-                >> writeExpr (Convert (e2, size))
-                >> append1 (Line.mov0 <| Register.fromSize D size)
-                >> append (Line.pop b @ Line.pop a)
-                >> append1 (Line.make "div" [Reg b])
-                >> append (Line.push a)))
+        func {
+            let! size = maxExprSize e1 e2
+            let a, b = Register.fromSize A size, Register.fromSize B size
+            do! writeExpr (Convert (e1, size))
+            do! writeExpr (Convert (e2, size))
+            do! append1 (Line.mov0 <| Register.fromSize D size)
+            do! append (Line.pop b @ Line.pop a)
+            do! append1 (Line.make "div" [Reg b])
+            do! append (Line.push a)
+        }
     | BiOperation (Mod, e1, e2) ->
-        exprSize expr (function 
-            | Void -> id
-            | Byte -> 
-                writeExpr (Convert (e1, Byte))
-                >> writeExpr (Convert (e2, Byte))
-                >> append (Line.pop bl @ Line.pop al)
-                >> append1 (Line.make "div" [Reg bl])
-                >> append (Line.push ah)
-            | Word -> 
-                writeExpr (Convert (e1, Word))
-                >> writeExpr (Convert (e2, Word))
-                >> append1 (Line.mov0 dx)
-                >> append (Line.pop bx @ Line.pop ax)
-                >> append1 (Line.make "div" [Reg bx])
-                >> append (Line.push dx)
-            | DWord -> 
-                writeExpr (Convert (e1, DWord))
-                >> writeExpr (Convert (e2, DWord))
-                >> append1 (Line.mov0 edx)
-                >> append (Line.pop ebx @ Line.pop eax)
-                >> append1 (Line.make "div" [Reg ebx])
-                >> append (Line.push edx))
+        func {
+            let! size = maxExprSize e1 e2
+            do! writeExpr (Convert (e1, size))
+            do! writeExpr (Convert (e2, size))
+
+            let lhReg = Register.fromSize A size
+            let rhReg = Register.fromSize B size
+            let resReg = match size with Byte -> ah | _ -> Register.fromSize D size
+
+            do! append1 (Line.mov0 resReg)
+            do! append (Line.pop rhReg @ Line.pop lhReg)
+            do! append1 (Line.make "div" [Reg rhReg])
+            do! append (Line.push resReg)
+        }
     | BiOperation (EQ, e1, e2) -> writeBiEquationOper JNE expr e1 e2
     | BiOperation (NEQ, e1, e2) -> writeBiEquationOper JE expr e1 e2
     | BiOperation (Greater, e1, e2) -> writeBiEquationOper JNG expr e1 e2

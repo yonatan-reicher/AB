@@ -4,7 +4,6 @@ open Asmb
 open Asmb.AST
 open Asmb.IL
 
-open Register.Registers
 
 type LabelCatagory = 
     SkipIf | SkipElse | LoopLabel | EndLabel | TrueLabel | FalseLabel
