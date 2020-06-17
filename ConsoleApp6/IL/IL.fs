@@ -50,7 +50,7 @@ module RegType =
 ///<summary>An assembly register - or global variable</summary>
 type Register = 
     | ABCDReg of ABCD * RegType
-    | DI  | BP  | SP  
+    | DI | SI | BP  | SP  
     ///<summary>An assembly global variable (x db 2)</summary>
     | Var of string * Size
     override t.ToString () =
@@ -59,11 +59,12 @@ type Register =
         | SP -> "sp"
         | BP -> "bp"
         | DI -> "di"
+        | SI -> "si"
         | Var (id,_) -> sprintf "[%s]" id
 module Register =
     let size = function
         | ABCDReg (_, t) -> RegType.size t
-        | DI | BP | SP -> Word
+        | DI | SI | BP | SP -> Word
         | Var (_,s) -> s
     /// default for byte is L
     let fromSize x s = ABCDReg (x, RegType.fromSize L s) 
