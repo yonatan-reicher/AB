@@ -129,8 +129,15 @@ let pproc =
 let pprogram = 
     let parray: _ Parser = 
         choice [
+            //  C Array
             pchar '{' >>. spaces >>. sepEndBy1 pliteral (pchar ',' .>> spaces) .>> pchar '}'
-            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral .>> pchar ';' .>> spaces |>> fun (a,b) -> List.replicate a b
+            //  C String
+            many1 (pchar '"' >>. manyCharsTill anyChar (pchar '"') .>> spaces) .>> pchar ';'
+            |>> fun str -> List.ofSeq (Seq.collect (Seq.map Char) str) @ [UInt 0u]
+            //  x dup literal
+            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral .>> pchar ';' .>> spaces 
+            |>> fun (a,b) -> List.replicate a b
+            //  literal
             pliteral .>> pchar ';' .>> spaces |>> List.singleton
         ]
         .>> spaces
