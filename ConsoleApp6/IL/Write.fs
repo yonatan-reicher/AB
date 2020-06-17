@@ -24,7 +24,7 @@ let writeLine (line: Line) =
     | IndentIn -> indent 1
     | IndentOut -> indent -1
     | EmptyLine -> appendNewLine
-    | Call name -> append <| sprintf "call %s" name
+    | Call name -> append <| sprintf "call %s" (notReserved name)
     | Comment str -> append <| sprintf ";\t%s" str
     | Jump (jmp, label) -> append <| sprintf "%O %O" jmp label
     | Label label -> append <| sprintf "%O:" label
@@ -35,9 +35,9 @@ let writeLines (lines: lines) = func { for line in lines do do! writeLine line }
 
 let writeProc { Name = name; Body = body } =
     func {
-       do! append (sprintf "proc %s" name)
+       do! append (sprintf "proc %s" (notReserved name))
        do! indented 1 (writeLines body)
-       do! append (sprintf "endp %s" name)
+       do! append (sprintf "endp %s" (notReserved name))
     }
 
 let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
@@ -60,7 +60,7 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
             for name, size, literals in vars do
                 let defSize = match size with Byte -> "db" | Word -> "dw" | DWord -> "dd"
                 let strLiterals = List.map string literals |> String.concat ", "
-                do! append (sprintf "%s %s %s" name defSize strLiterals)
+                do! append (sprintf "%s %s %s" (notReserved name) defSize strLiterals)
         }
         |> appendNewLine
         //      Code

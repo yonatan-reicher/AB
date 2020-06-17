@@ -47,7 +47,7 @@ let leaVar name oper con = getVar (Option.map (fun (_, varOper) -> [Line.make "l
 
 let funcSig name (con: Context) = con.Funcs.TryFind name
 
-let private labelMap map = function Local s -> Local <| map s | Gloabal s -> Gloabal <| map s
+let private labelMap map = function Local s -> Local <| map s | Global s -> Global <| map s
 
 let rec private validateLabel (con: Context) (label: Label): Label * Context =
     if Set.contains label con.Labels then

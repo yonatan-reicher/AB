@@ -150,15 +150,20 @@ let rec writeExpr (expr: Expr): LineWriter -> LineWriter =
                 >> append (Line.pop aGet)
                 >> append (Line.push aRet))
 
-let writeAssignTo (expr: Expr): LineWriter -> LineWriter = 
+let rec writeAssignTo (expr: Expr): LineWriter -> LineWriter = 
     match expr with
     | Expr.Variable name -> popVar name (addError <| UndefindedName name)
-    | UOperation (PointerVal, pointer) ->
-        let validateSize size = if size <> Word then failwithf "must be word" else size
-
-        exprSize pointer (validateSize >> Register.fromSize A >> fun r ->
-            writeExpr pointer
-            >> append1 (Line.make "pop" [Reg DI])
-            >> append (Line.pop r)
-            >> append1 (Line.make "mov" [Index (DI, UInt 0u, true, DWord); Reg r]))
+    | Convert (UOperation (PointerVal, pointer), size) ->
+        func {
+            let r = Register.fromSize A size
+            do! writeExpr (Convert (pointer, Word))
+            do! append1 (Line.make "pop" [Reg DI]) 
+            do! append (Line.pop r)
+            do! append1 (Line.make "mov" [Index(DI, UInt 0u, true, size); Reg r])
+        }
+    | UOperation (PointerVal, _) -> 
+        func {
+            let! size = exprSize expr
+            do! writeAssignTo (Convert (expr, size))
+        }
     | _ -> invalidArg "expr" (sprintf "Can only assign to variables. Was a %O" expr)

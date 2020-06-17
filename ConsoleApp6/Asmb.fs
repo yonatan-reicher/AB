@@ -1,12 +1,5 @@
 ﻿namespace Asmb
 
-type Label = 
-    Local of string | Gloabal of string
-    override t.ToString() =
-        match t with 
-        | Local s -> sprintf "@@%s" s
-        | Gloabal s -> s
-
 type Size = 
     Void | Byte | Word | DWord
     override t.ToString () = 
