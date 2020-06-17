@@ -34,7 +34,22 @@ let rec writeExpr (expr: Expr): LineWriter -> LineWriter =
             do! append1 (Line.make "cmp" [Reg inReg; Constent (UInt 0u)])
             do! append1 (Line.make "sete" [Reg outReg])
             do! append (Line.push outReg)
-        }        
+        }     
+    | Convert (UOperation (PointerVal, arg), size) ->
+        func {
+            let r = Register.fromSize A size
+            do! writeExpr (Convert (arg, Word))
+            do! append (Line.pop bx)
+            do! append1 (Line.mov r (Index (bx, UInt 0u, true, size)))
+            do! append (Line.push r)
+        }
+    | UOperation (PointerVal, arg) -> writeExpr (Convert (expr, DWord))
+    | UOperation (PointerOf, arg) ->
+        match arg with
+        | Variable name ->
+            let a = Register.fromSize A Word
+            leaVar name (Reg a) (addError <| UndefindedName name) >> append (Line.push a)
+        | _ -> addError (UnsupportedFeature (arg, "Cannot take address of this expression"))
     | BiOperation (BiOperator.Arithmetic as o, e1, e2) ->
         func {
             let! size = maxExprSize e1 e2                                                       

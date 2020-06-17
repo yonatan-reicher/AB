@@ -47,6 +47,11 @@ let popVar name error writer =
     | None -> error
     | Some lines -> append lines
     <| writer
+let leaVar name oper error writer = 
+    match Context.leaVar name oper writer.Context with 
+    | None -> error
+    | Some lines -> append lines
+    <| writer
 
 let procSig name error continuation (writer: LineWriter): LineWriter =
     match Context.funcSig name writer.Context with 

@@ -43,6 +43,7 @@ let private getVar continuation name (con: Context): lines option =
  
 let pushVar name con = getVar (Option.map (fun (r, oper) -> Line.mov r oper :: Line.push r)) name con
 let popVar name con = getVar (Option.map (fun (r, oper) -> Line.pop r @ [Inst("mov", [oper; Reg r])])) name con
+let leaVar name oper con = getVar (Option.map (fun (_, varOper) -> [Line.make "lea" [oper; varOper]])) name con
 
 let funcSig name (con: Context) = con.Funcs.TryFind name
 
