@@ -16,7 +16,7 @@ module private PartialPatterns =
 
     let (|RegSetter|_|) = function
         | Pop (Reg r) -> Some(r, fun x -> Line.make "pop" [Reg x])
-        | MovReg (r, o) -> Some(r, fun x -> Line.mov x o)
+        | MovReg (r, o) when not (Operand.uses r o) -> Some(r, fun x -> Line.mov x o)
         | _ -> None
 
     let (|MayModify|_|) r = function
