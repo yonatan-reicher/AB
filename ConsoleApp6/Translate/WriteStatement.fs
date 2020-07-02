@@ -7,25 +7,6 @@ open Asmb.IL
 open LineWriter
 open WriteExpr
 
-let writeCondition falseLabel cond = 
-    match cond with
-    | BiOperation(BiOperator.Equation as o, e1, e2) -> 
-        exprSize e1 (fun size1 -> 
-            exprSize e2 (fun size2 -> 
-                let size = Size.max size1 size2
-                let r1, r2 = Register.fromSize A size, Register.fromSize D size
-                writeExpr (Convert(e1, size))
-                >> writeExpr (Convert(e2, size))
-                >> append (Line.pop r2)
-                >> append (Line.pop r1)
-                >> append1 (Line.make "cmp" [Reg r1; Reg r2])))
-        >> append1 (Jump(JumpType.not (jmpFromOper o), falseLabel)) 
-    | _ ->
-        writeExpr cond
-        >> exprSize cond (Register.fromSize A >> fun r -> 
-            append (Line.pop r)
-            >> append1 (Line.make "cmp" [Reg r; Constent <| UInt 0u]))
-        >> append1 (Line.Jump (JE, falseLabel))
 
 let rec writeStatement (statement: Statement): LineWriter -> LineWriter = 
     match statement with

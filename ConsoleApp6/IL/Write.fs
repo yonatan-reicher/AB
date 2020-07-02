@@ -15,7 +15,23 @@ module Writer =
     let indent n writer = { writer with Indent = writer.Indent + n }
     let indented n func writer = writer |> indent n |> func |> indent -n
 
+
 open Writer
+
+let writeGlobalDeclaration (name: string, size: Size, dec: GlobalDeclaration) = 
+    let defSize = 
+        match size with 
+        | Void -> failwithf "size of global variable cannot be void" 
+        | Byte -> "db" 
+        | Word -> "dw" 
+        | DWord -> "dd"
+    let strLiterals = 
+        match dec with 
+        | GlobalVariable literal -> string literal
+        | GlobalDuplicates (i, lit) -> sprintf "%d dup (%O)" i lit
+        | GlobalString str -> sprintf "'%s'" str
+        | GlobalArray literals -> String.concat ", " (Seq.map string literals)
+    append (sprintf "%s %s %s" (notReserved name) defSize strLiterals)
 
 let writeLine (line: Line) =
     match line with
@@ -57,10 +73,8 @@ let writeProg { Code = procs; Data = vars; StackSize = stack }: string =
         |> append ".data"
         |> func {
             do! indented 1
-            for name, size, literals in vars do
-                let defSize = match size with Byte -> "db" | Word -> "dw" | DWord -> "dd"
-                let strLiterals = List.map string literals |> String.concat ", "
-                do! append (sprintf "%s %s %s" (notReserved name) defSize strLiterals)
+            for var in vars do
+                do! writeGlobalDeclaration var
         }
         |> appendNewLine
         //      Code

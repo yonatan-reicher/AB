@@ -40,5 +40,11 @@ module Literal =
         | UInt _ -> DWord
         | Char _ -> Byte
         | Offset _ -> Word
+        
+type GlobalDeclaration = 
+    | GlobalArray of Literal []
+    | GlobalString of string
+    | GlobalDuplicates of int * Literal
+    | GlobalVariable of Literal
 
 type FuncSig = Size * Size list

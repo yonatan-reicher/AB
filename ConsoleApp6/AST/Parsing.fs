@@ -20,7 +20,9 @@ let psize: _ Parser =
 
 let pliteral: Literal Parser = 
     choiceL [
-        puint32 |>> UInt 
+        numberLiteral (NumberLiteralOptions.AllowBinary 
+                       ||| NumberLiteralOptions.AllowHexadecimal) "number"
+        |>> fun a -> UInt (uint32 a.String)
         pchar '\'' >>. anyChar .>> pchar '\'' |>> Char
     ] "literal"
     .>> spaces
@@ -75,6 +77,7 @@ do piexpr :=
     |> binary (choice [stringReturn "*" Mul; stringReturn "/" Div; stringReturn "%" Mod])
     |> binary (choice [stringReturn "+" Add; stringReturn "-" Sub])
     |> binary (choice [stringReturn "=" EQ; stringReturn "!=" NEQ; stringReturn ">=" NLesser; stringReturn "<=" NGreater; stringReturn "<" Lesser; stringReturn ">" Greater])
+    |> binary (choice [stringReturn "or" Or; stringReturn "and" And])
     .>>. opt (pstring "as" >>. spaces >>. psize .>> spaces)
     |>> function expr, None -> expr | expr, Some size -> Convert(expr, size)
     <??> "expression"
@@ -88,6 +91,13 @@ let pcomment: _ Parser =
         pstring "/*" >>. manyCharsTill anyChar (pstring "*/")
     ]
 
+let rec pif = 
+    let pif, pifImpl = createParserForwardedToRef()
+    do pifImpl := 
+        let pelse = skipString "else" >>. spaces >>. ((pif |>> fun s -> Block(None, [s])) <|> pblock)
+        pstring "if" >>. spaces >>. tuple3 pexpr pblock (opt pelse) |>> IfElse
+    pif
+
 let pstatement = 
     choice [
         //  Statements with keywords or symbols at the beginning are easier to parse. Parse them first.
@@ -96,12 +106,12 @@ let pstatement =
         pstring "pop#" >>. spaces >>. pexpr |>> UnsafePop
         pstring "###" >>. spaces >>. manyCharsTill anyChar (pstring "###") |>> fun x -> x.Replace("\r\n", "\n").Split('\n') |> Seq.map(fun s -> s.Trim()) |> Seq.where ((<>) "") |> Array.ofSeq |> NativeAssemblyLines
         pstring "pushpop" >>. spaces >>. sepBy1 pterm (pchar ',' >>. spaces) .>>. pblock |>> Pushpop
-        pstring "if" >>. spaces >>. tuple3 pexpr pblock (pstring "else" >>. spaces >>. pblock |> opt) |>> IfElse
+        pif
         pstring "while" >>. spaces >>. pexpr .>>. pblock |>> While
         pcomment |>> Comment
         //  Statements with ambiguaty at the start should be parsed carfully using .>>.? operators
         pterm .>>? pstring "<-" .>> spaces .>>. pexpr |>> Assign
-        pidentifier .>>.? psize .>>. (opt (pchar '=' >>. spaces >>. pexpr)) |>> fun ((a,b),c) -> StackDeclare(a,b,c)
+        pidentifier .>>.? psize .>>. (opt ((skipChar '=' <|> skipString "<-") >>. spaces >>. pexpr)) |>> fun ((a,b),c) -> StackDeclare(a,b,c)
         pexpr |>> SideEffect
         //pidentifier .>>.? (stringReturn "++" Increment <|> stringReturn "--" Decrement) |>> fun (a,f) -> f a
     ]
@@ -127,22 +137,24 @@ let pproc =
     |>> fun (((ret,id),param),s) -> {Name = id; Body = s; Parameters = param; RetSize = ret}
         
 let pprogram = 
-    let parray: _ Parser = 
+    let pglobalDeclaration: GlobalDeclaration Parser = 
         choice [
             //  C Array
             pchar '{' >>. spaces >>. sepEndBy1 pliteral (pchar ',' .>> spaces) .>> pchar '}'
+            |>> (Array.ofList >> GlobalArray)
             //  C String
             many1 (pchar '"' >>. manyCharsTill anyChar (pchar '"') .>> spaces) .>> pchar ';'
-            |>> fun str -> List.ofSeq (Seq.collect (Seq.map Char) str) @ [UInt 0u]
+            |>> (String.concat "" >> GlobalString)
             //  x dup literal
-            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral .>> pchar ';' .>> spaces 
-            |>> fun (a,b) -> List.replicate a b
+            pint32 .>>? spaces .>>? pstring "dup" .>> spaces .>>. pliteral .>> pchar ';'
+            |>> GlobalDuplicates
             //  literal
-            pliteral .>> pchar ';' .>> spaces |>> List.singleton
+            pliteral .>> pchar ';'
+            |>> GlobalVariable
         ]
         .>> spaces
     let variableDeclaration = 
-        tuple3 pidentifier psize <| opt (pstring "=" >>. spaces >>. parray)
+        tuple3 pidentifier psize (pstring "=" >>. spaces >>. pglobalDeclaration)
 
     spaces >>. many variableDeclaration .>> many (pcomment .>> spaces) .>>. many1 (pproc .>> many (pcomment .>> spaces)).>> eof
-    |>> fun (vars,procs) -> {ProgFunctions = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, Option.defaultValue [UInt 0u] v) vars}
+    |>> fun (vars,procs) -> {ProgFunctions = procs; ProgVariables = List.map (fun (id,size,v) -> id, size, v) vars}

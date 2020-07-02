@@ -7,14 +7,15 @@ type BiOperator =
     | Add | Sub | Mul | Div | Mod
     | EQ | Lesser | Greater | NEQ | NLesser | NGreater | And | Or
 module BiOperator =
-    let (|Equation|Arithmetic|) = function 
-        | EQ | Lesser | Greater | NEQ 
-        | NLesser | NGreater | And | Or -> Equation
+    let (|Equation|Arithmetic|Logical|) = function 
+        | EQ | Lesser | Greater | NEQ | NLesser | NGreater -> Equation
         | Add | Sub | Mul | Div | Mod -> Arithmetic
+        | And | Or -> Logical
+
     let size x s1 s2 = 
         match x with
         | Arithmetic -> Size.max s1 s2
-        | Equation -> Byte
+        | Equation | Logical -> Byte
 
 type UOperator =
     | PointerOf | PointerVal  
@@ -29,6 +30,7 @@ module UOperator =
 type Expr =
     | Constent of Literal
     | Variable of string
+    | Conditional of Expr * Expr * Expr
     | BiOperation of BiOperator*Expr*Expr
     | UOperation of UOperator*Expr
     | Convert of Expr*Size
@@ -41,6 +43,7 @@ type Expr =
         | UOperation (o, e1) -> sprintf "%A%O" o e1
         | Convert (e, s) -> sprintf "(%O as %O)" e s
         | Call (name, param) -> sprintf "%s(%s)" name (param |> List.map string |> String.concat ", ")
+        | Conditional (cond, e1, e2) -> sprintf "(if %O %O else %O)" cond e1 e2
 
 module Expr = 
     /// Returns the size of the value that the expression will return 
@@ -54,6 +57,12 @@ module Expr =
                 let! s2 = size (getVar, getProc) e2
                 return BiOperator.size o s1 s2
             }
+        | Conditional (_, e1, e2) ->
+            catch {
+                let! s1 = size (getVar, getProc) e1
+                let! s2 = size (getVar, getProc) e2
+                return Size.max s1 s2
+            }
         | UOperation (o,e) -> Result.map (UOperator.size o) (size (getVar, getProc) e)
         | Convert (_,s) -> Ok s
 
@@ -65,6 +74,7 @@ module Expr =
         | UOperation (_, e1) -> seq {e1}
         | Convert (e1, _) -> seq {e1}
         | Call (_, param) -> List.toSeq param
+        | Conditional (cond, e1, e2) -> seq {cond; e1; e2}
         |> Seq.collect (fun e -> Seq.append [e] (children e)) 
 
     let rec functions expr = 
@@ -141,5 +151,5 @@ module Function =
     let parameters ({ Parameters = parameters }: Function) = parameters
     let signature (f: Function) = f.Sig
 
-type AsmbProgram = {    ProgVariables: (string * Size * Literal list) list
+type AsmbProgram = {    ProgVariables: (string * Size * GlobalDeclaration) list
                         ProgFunctions: Function list               }

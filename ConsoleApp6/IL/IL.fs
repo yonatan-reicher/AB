@@ -182,14 +182,24 @@ type JumpType =
     override t.ToString() =
         match t with
         | JMP -> "jmp"
-        | JG -> "jg"
-        | JL -> "jl"
+        | JG -> "ja"
+        | JL -> "jb"
         | JE -> "je"
-        | JNG -> "jng"
-        | JNL -> "jnl"
+        | JNG -> "jna"
+        | JNL -> "jnb"
         | JNE -> "jne"
-        | JGE -> "jge"
-        | JLE -> "jle"
+        | JGE -> "jae"
+        | JLE -> "jbe"
+        //  Apperanlty, these are signed instructions!
+        //| JMP -> "jmp"
+        //| JG -> "jg"
+        //| JL -> "jl"
+        //| JE -> "je"
+        //| JNG -> "jng"
+        //| JNL -> "jnl"
+        //| JNE -> "jne"
+        //| JGE -> "jge"
+        //| JLE -> "jle"
 module JumpType =
     let not = function
         | JG  -> JNG | JL  -> JNL  | JE -> JNE
@@ -333,6 +343,6 @@ module Line =
 type Procedure = { Name: string; Body: lines; Sig: Size * Size list }
 
 ///<summary>An assembly program with a stack data and code segment</summary>
-type Program = { StackSize:int; Data: list<string * Size * Literal list>; Code: Procedure list }
+type Program = { StackSize:int; Data: list<string * Size * GlobalDeclaration>; Code: Procedure list }
 
 
