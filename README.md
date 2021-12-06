@@ -1,11 +1,11 @@
-# I dont have a name yet yeah yeah :duck:
+# AB
 A very low level language which compiles directly into readable TASM to run on DOSBOX
 
-This project was started for learning about tasm, about assmbly and about code translation.
+This project was started for learning about tasm, about assembly and about code translation.
 I'm very proud of it in it's current state and will keep updating it until it is usable!
 
 ## Downloads and dependencies
-~You can download the .exe from [This link](https://drive.google.com/drive/folders/1VJPPnGVQNaFvDaarGW5-Mz5avbziCB5r?usp=sharing)~
+~You can download the .exe from [This link](https://drive.google.com/drive/folders/1VJPPnGVQNaFvDaarGW5-Mz5avbziCB5r?usp=sharing)~  
 You can download the exe with the dlls in the releases tab.
 
 To use it you have to download and install DOSBOX and TASM from the interwebs.
