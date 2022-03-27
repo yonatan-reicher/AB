@@ -2,7 +2,12 @@
 A very low level language which compiles directly into readable TASM to run on DOSBOX
 
 This project was started for learning about tasm, about assembly and about code translation.
-I'm very proud of it in it's current state and will keep updating it until it is usable!
+~I'm very proud of it in it's current state and will keep updating it until it is usable!~
+
+Not so much anymore lol. This is very old code and I learned a lot from the mistakes I made here and from the bad git usage.
+The compiler here is very cool and supports all the basic features you would expect like variables, loops, ifs, functions
+and a standard library. A couple of more advanced features are also supported like arrays, pointers and inline assembly.
+Running code compiled by this compiler has only been tested with TASM and a Dos-Box VM.
 
 ## Downloads and dependencies
 ~You can download the .exe from [This link](https://drive.google.com/drive/folders/1VJPPnGVQNaFvDaarGW5-Mz5avbziCB5r?usp=sharing)~  
